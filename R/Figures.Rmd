@@ -1,0 +1,161 @@
+---
+title: "Figures"
+author: "Courtney Gale"
+date: "11/15/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+```
+
+```{r}
+# dat <- read.csv("/Users/Courtney/Documents/Emory_3rd_Semester/CS - Machine Learning/CS534-Final/data/Hospital_Inpatient_Discharges__SPARCS_De-Identified___2015.csv")
+
+path  <- './data/Hospital_Inpatient_Discharges__SPARCS_De-Identified___2015.csv'
+
+dat <- read.csv(path)
+
+head(dat)
+
+colnames(dat)
+
+# Convert length of stay to numeric
+dat$Length.of.Stay <- (as.numeric(dat$Length.of.Stay))
+
+# Check result
+summary(dat$Length.of.Stay)
+
+# Create cost per day variable
+dat$Cost.per.Day <- dat$Total.Costs / dat$Length.of.Stay
+```
+
+# Length of Stay
+
+```{r}
+ggplot(dat, aes(x = Length.of.Stay)) + geom_histogram(binwidth = 5, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  ggtitle("Distribution of Length of Stay") +
+  xlab("Length of Stay") +
+  ylab("Frequency") + 
+  scale_x_continuous(breaks = seq(0, 120, by = 10))
+```
+
+
+### Note y - axis only goes to 30 in order to see the distribution of the boxplot better
+```{r}
+ggplot(dat, aes(x = Gender, y = Length.of.Stay, color = Age.Group)) + geom_boxplot() +
+  ggtitle("Length of Stay by Gender and Age") +
+  xlab("Gender") +
+  ylab("Length of Stay") +
+  ylim(0,30)
+```
+
+
+```{r}
+ggplot(dat, aes(x = Race, y = Length.of.Stay, color = Race)) + geom_boxplot() +
+  theme(legend.position = "none") +
+  ggtitle("Length of Stay by Race") +
+  xlab("Race") +
+  ylab("Length of Stay") +
+  ylim(0,30)
+```
+
+0 Pre-MDC or Ungroupable
+
+1 Diseases and Disorders of the Nervous System
+
+2 Diseases and Disorders of the Eye
+
+3 Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders
+
+4 Diseases and Disorders of the Respiratory System
+
+5 Diseases and Disorders of the Circulatory System
+
+6 Diseases and Disorders of the Digestive System
+
+7 Diseases and Disorders of the Hepatobiliary System and Pancreas
+
+8 Diseases and Disorders of the Musculoskeletal System and Connective Tissue
+
+9 Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast
+
+10 Endocrine, Nutritional and Metabolic Diseases and Disorders
+
+11 Diseases and Disorders of the Kidney and Urinary Tract
+
+12 Diseases and Disorders of the Male Reproductive System
+
+13 Diseases and Disorders of the Female Reproductive System
+
+14 Pregnancy, Childbirth and the Puerperium
+
+15 Newborns and Other Neonates with Conditions Originating in the Perinatal Period
+
+16 Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders
+
+17 Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy
+
+18 Infectious and Parasitic Diseases, Systemic or Unspecified Sites
+
+19 Mental Diseases and Disorders
+
+20 Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders
+
+21 Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment
+
+22 Burns
+
+23 Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts
+
+24 Human Immunodeficiency Virus (HIV) Infections
+
+25 Multiple Significant Trauma
+
+```{r}
+
+ggplot(aes(x = APR.MDC.Code, y = Length.of.Stay), data = dat) + stat_summary(fun = "mean", geom = "bar",  fill = "#69b3a2") +
+  ggtitle("Length of Stay by APR MDC Code") +
+  xlab("APR MDC Code") +
+  ylab("Average Length of Stay") +
+  scale_x_continuous(breaks = seq(0, 25, by = 2))
+```
+
+```{r}
+ggplot(aes(x = Type.of.Admission, y = Length.of.Stay), data = dat) + stat_summary(fun = "mean", geom = "bar",  fill = "#69b3a2") +
+  ggtitle("Length of Stay by Type of Admission") +
+  xlab("Admission Type") +
+  ylab("Average Length of Stay")
+```
+
+```{r}
+ggplot(aes(x = APR.Severity.of.Illness.Description, y = Length.of.Stay), data = dat) + stat_summary(fun = "mean", geom = "bar") +
+  ggtitle("Length of Stay by Severity of Illness") +
+  xlab("Severity of Illness") +
+  ylab("Average Length of Stay")
+```
+
+# Cost per day
+
+```{r}
+ggplot(aes(x = Type.of.Admission, y = Cost.per.Day), data = dat) + stat_summary(fun = "mean", geom = "bar",  fill = "#69b3a2") +
+  ggtitle("Cost per Day by Type of Admission") +
+  xlab("Admission Type") +
+  ylab("Average Cost per Day")
+```
+
+
+```{r}
+ggplot(aes(x = APR.Severity.of.Illness.Description, y = Cost.per.Day), data = dat) + stat_summary(fun = "mean", geom = "bar",  fill = "#69b3a2") +
+  ggtitle("Cost per day by Severity of Illness") +
+  xlab("Severity of Illness") +
+  ylab("Average Cost per day")
+```
+
+```{r}
+ggplot(aes(x = Age.Group, y = Cost.per.Day), data = dat) + stat_summary(fun = "mean", geom = "bar",  fill = "#69b3a2") +
+  ggtitle("Cost per day by Age Group") +
+  xlab("Age Group") +
+  ylab("Average Cost per day")
+```
+
