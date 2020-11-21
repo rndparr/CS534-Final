@@ -10,17 +10,15 @@ library(ggplot2)
 ```
 
 ```{r}
-dat <- read.csv("/Users/Courtney/Documents/Emory_3rd_Semester/CS - Machine Learning/CS534-Final/data/Hospital_Inpatient_Discharges__SPARCS_De-Identified___2015.csv")
-
-# path  <- './data/Hospital_Inpatient_Discharges__SPARCS_De-Identified___2015.csv'
-
-# dat <- read.csv(path)
+path <- './data/dat.csv'
+dat <- read.csv(path)
 
 head(dat)
 
 colnames(dat)
 
 # Convert length of stay to numeric
+dat[which(dat$Length.of.Stay == '120 +'), 'Length.of.Stay'] <- '121'
 dat$Length.of.Stay <- (as.numeric(dat$Length.of.Stay))
 
 # Check result
@@ -29,8 +27,6 @@ summary(dat$Length.of.Stay)
 # Create cost per day variable
 dat$Cost.per.Day <- dat$Total.Costs / dat$Length.of.Stay
 
-# Subset data 
-dat <- dat[!(dat$APR.MDC.Code == 14 | dat$Abortion.Edit.Indicator == "Y" | dat$Type.of.Admission == "Newborn" | dat$APR.MDC.Code == 15),]
 ```
 
 # Length of Stay
