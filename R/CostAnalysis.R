@@ -1,5 +1,7 @@
-path <- './data/dat.csv'
-dat <- read.csv(path)
+dat <- read.csv("/Users/Courtney/Documents/Emory_3rd_Semester/CS - Machine Learning/CS534-Final/data/dat.csv")
+
+#path <- './data/dat.csv'
+#dat <- read.csv(path)
 
 head(dat)
 
@@ -47,71 +49,82 @@ dat$Payment.Typology.3 <- as.factor(dat$Payment.Typology.3)
 # dat$Abortion.Edit.Indicator <- as.factor(dat$Abortion.Edit.Indicator)
 dat$Emergency.Department.Indicator <- as.factor(dat$Emergency.Department.Indicator)
 
+# make Length.of.Stay numeric
+dat[which(dat$Length.of.Stay == '120 +'), 'Length.of.Stay'] <- '121'
+dat$Length.of.Stay <- as.numeric(dat$Length.of.Stay)
+
 # Create cost per day variable
 dat$Cost.per.Day <- dat$Total.Costs / dat$Length.of.Stay
 
-# Split into training and testing
-library(caret)
-set.seed(42)
-intrain<-createDataPartition(y=dat$Total.Costs,p=0.7,list=FALSE)
-training<-dat[intrain,]
-testing<-dat[-intrain,]
+dat <- dat[complete.cases(dat),]
 
+# Remove the one outlier
+dat <- subset(dat, rownames(dat) != 477423)
+
+# Subset dataset to be more manageable
+library(caret)
+set.seed(123)
+subset<-createDataPartition(y=dat$Cost.per.Day,p=0.5,list=FALSE)
+dat_sub <- dat[subset, ]
+
+# training data
+set.seed(123)
+intrain <-createDataPartition(y=dat_sub$Cost.per.Day,p=0.7,list=FALSE)
+training <-dat_sub[intrain,]
+testing <-dat_sub[-intrain,]
+
+rm(dat)
+rm(dat_sub)
+rm(intrain)
+rm(subset)
 
 # Linear regression
-linearReg <- lm(Total.Costs ~ Age.Group
-                + Zip
+linearReg <- lm(Cost.per.Day ~ Age.Group
                 + Gender
                 + Race
                 + Ethnicity
                 + Type.of.Admission
-                + CCS.Diagnosis.Code
-                + CCS.Procedure.Code
-                + APR.DRG.Code
                 + APR.MDC.Code
                 + APR.Severity.of.Illness.Code
                 + APR.Risk.of.Mortality
                 + Payment.Typology.1
-                + Payment.Typology.2
-                + Payment.Typology.3
                 + Emergency.Department.Indicator
                 + Health.Service.Area
                 + Hospital.County 
-                + Facility.Id, data = training)
+                + Facility.Id
+                , data = training)
+save.image(file = "CostPerDay_linearReg.Rdata")
+
 summary(linearReg)
 
 linearReg_preds <- predict(linearReg, testing)
 
-linearReg_MAE <- MAE(linearReg_preds, testing$Total.Costs)
-linearReg_MRE <- MAE(linearReg_preds, testing$Total.Costs)
-linearReg_RMSE <- MAE(linearReg_preds, testing$Total.Costs)
+linearReg_MAE <- MAE(linearReg_preds, testing$Cost.per.Day)
+linearReg_MRE <- MRE(linearReg_preds, testing$Cost.per.Day)
+linearReg_RMSE <- RMSE(linearReg_preds, testing$Cost.per.Day)
 
-# Hierarchical model for Total.Costs
-library(lme4)
-Hierarchical_cost <- lmer(Total.Costs ~  Age.Group
-             + Zip
+rm(linear)
+
+# Hierarchical model for Cost.per.Day
+library(spaMM)
+Hierarchical_cost <- HLfit(Cost.per.Day ~  Age.Group
              + Gender
              + Race
              + Ethnicity
              + Type.of.Admission
-             + CCS.Diagnosis.Code
-             + CCS.Procedure.Code
-             + APR.DRG.Code
              + APR.MDC.Code
              + APR.Severity.of.Illness.Code
              + APR.Risk.of.Mortality
              + Payment.Typology.1
-             + Payment.Typology.2
-             + Payment.Typology.3
              + Emergency.Department.Indicator
-             + (1|Health.Service.Area)
-             + (1|Hospital.County) 
-             + (1|Facility.Id), 
+             + Health.Service.Area
+             + (1 | Hospital.County / Health.Service.Area)
+             + (1 | Facility.Id / Hospital.County / Health.Service.Area), 
              family = gaussian, data = training)
 summary(Hierarchical_cost)
 
-hierarchical_preds <- predict(linearReg, testing)
+hierarchical_preds <- predict(Hierarchical_cost, testing)
 
-hierarchical_MAE <- MAE(hierarchical_preds, testing$Total.Costs)
-hierarchical_MRE <- MAE(hierarchical_preds, testing$Total.Costs)
-hierarchical_RMSE <- MAE(hierarchical_preds, testing$Total.Costs)
+hierarchical_MAE <- MAE(hierarchical_preds, testing$Cost.per.Day)
+hierarchical_MRE <- MRE(hierarchical_preds, testing$Cost.per.Day)
+hierarchical_RMSE <- RMSE(hierarchical_preds, testing$Cost.per.Day)

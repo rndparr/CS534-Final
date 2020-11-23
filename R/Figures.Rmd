@@ -10,8 +10,9 @@ library(ggplot2)
 ```
 
 ```{r}
-path <- './data/dat.csv'
-dat <- read.csv(path)
+#setwd("/Users/Courtney/Documents/Emory_3rd_Semester/CS - Machine Learning/CS534-Final")
+#path <- './data/dat.csv'
+dat <- read.csv("/Users/Courtney/Documents/Emory_3rd_Semester/CS - Machine Learning/CS534-Final/data/dat.csv")
 
 head(dat)
 
@@ -44,7 +45,8 @@ ggplot(dat, aes(x = Length.of.Stay)) + geom_histogram(binwidth = 1, fill="#69b3a
   ggtitle("Distribution of Length of Stay") +
   xlab("Length of Stay") +
   ylab("Frequency") + 
-  xlim(0,40)
+  scale_x_continuous(breaks = c(1, 10, 20, 30, 40), limits = c(0,40)) +
+  scale_y_continuous(labels = scales::comma)
 ```
 
 
@@ -57,6 +59,15 @@ ggplot(dat, aes(x = Gender, y = Length.of.Stay, color = Age.Group)) + geom_boxpl
   ylim(0,30)
 ```
 
+```{r}
+ggplot(dat, aes(x = Age.Group, y = Length.of.Stay, fill = Age.Group)) + 
+  geom_boxplot() +
+  theme(legend.position = "none") +
+  ggtitle("Length of Stay by Age Group") +
+  xlab("Age Group") +
+  ylab("Length of Stay") +
+  scale_y_continuous(breaks = c(1, 10, 20), limits = c(0,20))
+```
 
 ```{r}
 ggplot(dat, aes(x = Race, y = Length.of.Stay, color = Race)) + geom_boxplot() +
@@ -136,7 +147,21 @@ ggplot(aes(x = Type.of.Admission, y = Length.of.Stay), data = dat) + stat_summar
 ```
 
 ```{r}
-ggplot(aes(x = APR.Severity.of.Illness.Description, y = Length.of.Stay), data = dat) + stat_summary(fun = "mean", geom = "bar") +
+library(wesanderson)
+ggplot(aes(x = Age.Group, y = Length.of.Stay, fill = Age.Group), data = dat) + stat_summary(fun = "mean", geom = "bar") +
+  theme(legend.position = "none") +
+  ggtitle("Average Length of Stay by Age Group") +
+  xlab("Age Group") +
+  ylab("Average Length of Stay")
+```
+
+```{r}
+dat$APR.Severity.of.Illness.Description <- ifelse(dat$APR.Severity.of.Illness.Description == "", "NA", dat$APR.Severity.of.Illness.Description)
+
+dat <- dat[!dat$APR.Severity.of.Illness.Description == "NA", ]
+
+ggplot(aes(x = reorder(APR.Severity.of.Illness.Description, Length.of.Stay), y = Length.of.Stay, fill = APR.Severity.of.Illness.Description), data = dat) + stat_summary(fun = "mean", geom = "bar") +
+  theme(legend.position = "none") +
   ggtitle("Length of Stay by Severity of Illness") +
   xlab("Severity of Illness") +
   ylab("Average Length of Stay")
@@ -145,7 +170,13 @@ ggplot(aes(x = APR.Severity.of.Illness.Description, y = Length.of.Stay), data = 
 # Cost per day
 
 ```{r}
-ggplot(aes(x = Type.of.Admission, y = Cost.per.Day), data = dat) + stat_summary(fun = "mean", geom = "bar",  fill = "#69b3a2") +
+ggplot(dat, aes(x= "", y=Cost.per.Day)) + geom_boxplot()
+```
+
+
+```{r}
+ggplot(aes(x = Type.of.Admission, y = Cost.per.Day, fill = Type.of.Admission), data = dat) + stat_summary(fun = "mean", geom = "bar") +
+  theme(legend.position = "none") +
   ggtitle("Cost per Day by Type of Admission") +
   xlab("Admission Type") +
   ylab("Average Cost per Day")
@@ -153,16 +184,17 @@ ggplot(aes(x = Type.of.Admission, y = Cost.per.Day), data = dat) + stat_summary(
 
 
 ```{r}
-ggplot(aes(x = APR.Severity.of.Illness.Description, y = Cost.per.Day), data = dat) + stat_summary(fun = "mean", geom = "bar",  fill = "#69b3a2") +
+ggplot(aes(x = APR.Severity.of.Illness.Description, y = Cost.per.Day, fill = APR.Severity.of.Illness.Description), data = dat) + stat_summary(fun = "mean", geom = "bar") +
+  theme(legend.position = "none") +
   ggtitle("Cost per day by Severity of Illness") +
   xlab("Severity of Illness") +
   ylab("Average Cost per day")
 ```
 
 ```{r}
-ggplot(aes(x = Age.Group, y = Cost.per.Day), data = dat) + stat_summary(fun = "mean", geom = "bar",  fill = "#69b3a2") +
+ggplot(aes(x = Age.Group, y = Cost.per.Day), data = dat, fill = Age.Group) + stat_summary(fun = "mean", geom = "bar") +
+  theme(legend.position = "none") +
   ggtitle("Cost per day by Age Group") +
   xlab("Age Group") +
   ylab("Average Cost per day")
 ```
-
