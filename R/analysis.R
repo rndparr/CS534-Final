@@ -2,7 +2,8 @@
 path <- './data/dat.csv'
 dat <- read.csv(path, 
 	colClasses = c(rep('factor',13),'integer',rep('factor',16),'numeric','numeric'))
-
+colnames(dat)
+sort(as.numeric(unique(dat$APR.MDC.Code)))
 ######
 # Error functinos
 MAE <- function(pred, actual) {mean(abs(pred - actual))}
@@ -10,6 +11,10 @@ MRE <- function(pred, actual) {mean(abs(pred - actual)/abs(actual))}
 RMSE <- function(pred, actual) {sqrt(mean((actual - pred)^2))}
 
 #######
+
+# factor names
+c('Health.Service.Area', 'Hospital.County', 'Operating.Certificate.Number', 'Facility.Id', 'Age.Group', 'Zip', 'Zip.Code...3.digits', 'Gender', 'Race', 'Ethnicity', 'Type.of.Admission', 'Patient.Disposition', 'CCS.Diagnosis.Code', 'APR.DRG.Code', 'CCS.Procedure.Code', 'APR.MDC.Code', 'APR.Severity.of.Illness.Code', 'APR.Risk.of.Mortality', 'APR.Medical.Surgical.Description', 'Payment.Typology.1', 'Payment.Typology.2', 'Payment.Typology.3', 'Abortion.Edit.Indicator', 'Emergency.Department.Indicator')
+
 # make Length.of.Stay numeric
 dat[which(dat$Length.of.Stay == '120 +'), 'Length.of.Stay'] <- '121'
 dat$Length.of.Stay <- as.numeric(dat$Length.of.Stay)
@@ -47,19 +52,21 @@ tab <- summarize(dat, type='factor',
 
 
 #######
-library(caret)
-library(future)
+# library(caret)
+# library(future)
 library(spaMM)
-spaMM.options('nb_cores' = availableCores() - 1)
+spaMM.options('nb_cores' = future::availableCores() - 1)
 set.seed(123)
 
-rows <- createDataPartition(y=dat$Length.of.Stay, p=0.7, list=FALSE) 
+rows <- caret::createDataPartition(y=dat$Length.of.Stay, p=0.7, list=FALSE) 
 training <- dat[rows,]
 test <- dat[-rows,]
+
 rm(dat)
 
-# dat_sub_rows <- createDataPartition(y=dat$Length.of.Stay, p=0.1, list=FALSE)
+# dat_sub_rows <- createDataPartition(y=dat$Length.of.Stay, p=0.5, list=FALSE)
 # dat_sub <- dat[dat_sub_rows,]
+# dat <- dat[dat_sub_rows,]
 # intrain <- createDataPartition(y=dat_sub$Length.of.Stay, p=0.7, list=FALSE) 
 # training <- dat_sub[intrain,] 
 # testing <-dat_sub[-intrain,] 
@@ -91,38 +98,64 @@ model1 <- glm(Length.of.Stay ~
 		+ Emergency.Department.Indicator
 		+ Health.Service.Area
 		+ Hospital.County 
-		# + Facility.Id,
+		+ Facility.Id,
 		,
 	family = Tpoisson(link = 'log'),
 	data = training)
 summary(model1)
 
 
+# model1 <- glm(Length.of.Stay ~ 
+# 		+ Age.Group
+# 		# + Zip
+# 		+ Gender
+# 		+ Race
+# 		+ Ethnicity
+# 		+ Type.of.Admission
+# 		# + CCS.Diagnosis.Code
+# 		# + CCS.Procedure.Code
+# 		# + APR.DRG.Code
+# 		+ APR.MDC.Code
+# 		+ APR.Severity.of.Illness.Code
+# 		+ APR.Risk.of.Mortality
+# 		+ Payment.Typology.1
+# 		# + Payment.Typology.2
+# 		# + Payment.Typology.3
+# 		+ Emergency.Department.Indicator
+# 		+ Health.Service.Area
+# 		+ Hospital.County 
+# 		# + Facility.Id,
+# 		,
+# 	family = Tpoisson(link = 'log'),
+# 	data = training)
+# summary(model1)
 
-model1_2 <- glm(Length.of.Stay ~ 
-		+ Age.Group
-		# + Zip
-		+ Gender
-		+ Race
-		+ Ethnicity
-		+ Type.of.Admission
-		# + CCS.Diagnosis.Code
-		# + CCS.Procedure.Code
-		# + APR.DRG.Code
-		+ APR.MDC.Code
-		+ APR.Severity.of.Illness.Code
-		+ APR.Risk.of.Mortality
-		+ Payment.Typology.1
-		# + Payment.Typology.2
-		# + Payment.Typology.3
-		+ Emergency.Department.Indicator
-		+ Health.Service.Area
-		+ Hospital.County 
-		+ Facility.Id,
-		,
-	family = Tpoisson(link = 'log'),
-	data = training)
-summary(model1_2)
+
+
+# model1_2 <- glm(Length.of.Stay ~ 
+# 		+ Age.Group
+# 		# + Zip
+# 		+ Gender
+# 		+ Race
+# 		+ Ethnicity
+# 		+ Type.of.Admission
+# 		# + CCS.Diagnosis.Code
+# 		# + CCS.Procedure.Code
+# 		# + APR.DRG.Code
+# 		+ APR.MDC.Code
+# 		+ APR.Severity.of.Illness.Code
+# 		+ APR.Risk.of.Mortality
+# 		+ Payment.Typology.1
+# 		# + Payment.Typology.2
+# 		# + Payment.Typology.3
+# 		+ Emergency.Department.Indicator
+# 		+ Health.Service.Area
+# 		+ Hospital.County 
+# 		+ Facility.Id,
+# 		,
+# 	family = Tpoisson(link = 'log'),
+# 	data = training)
+# summary(model1_2)
 
 
 
