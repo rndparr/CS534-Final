@@ -1,7 +1,7 @@
 ---
 title: "Predicting Patient Length of Stay and Cost per Day"
-author: "Courtney Gale"
-date: "12/3/2020"
+author: "Courtney Gale & Randy Parrish"
+date: "12/4/2020"
 output: html_document
 ---
 
@@ -25,7 +25,7 @@ library(gt)
 
 ```{r, cache = TRUE}
 # Import the data
-path  <- './data/Hospital_Inpatient_Discharges__SPARCS_De-Identified___2015.csv'
+path  <- '../data/Hospital_Inpatient_Discharges__SPARCS_De-Identified___2015.csv'
 dat <- read.csv(path, 
                 colClasses = c(rep('factor',10),'character',rep('factor',21),'numeric', rep('factor',2), 'character', 'character'))
 ```
@@ -61,6 +61,134 @@ dat$Cost.per.Day <- dat$Total.Costs / dat$Length.of.Stay
 ```
 
 ## Figures using all the data
+
+Length of stay goes from 1 to 121 (previously 120+) but the majority of the data lies between 1 and 30. With the most patients having stayed 2 days. 
+
+```{r}
+ggplot(dat, aes(x = Length.of.Stay)) + geom_histogram(binwidth = 1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  ggtitle("Distribution of Length of Stay") +
+  xlab("Length of Stay") +
+  ylab("Frequency") + 
+  scale_x_continuous(breaks = c(1, 10, 20, 30, 40), limits = c(0,40)) +
+  scale_y_continuous(labels = scales::comma)
+```
+
+Mean length of stay increases as age group increases. The interquartile range of length of stay also increases as age group increases.
+
+```{r, message = FALSE}
+ggplot(dat, aes(x = Age.Group, y = Length.of.Stay, fill = Age.Group)) + 
+  geom_boxplot() +
+  theme(legend.position = "none") +
+  ggtitle("Length of Stay by Age Group") +
+  xlab("Age Group") +
+  ylab("Length of Stay") +
+  scale_y_continuous(breaks = c(1, 10, 20), limits = c(0,20))
+```
+
+The following codes are Major Diagnosic Codes (MDC) for that generally correspond to a major organ system. 
+
+$~$
+
+0 Pre-MDC or Ungroupable
+
+1 Diseases and Disorders of the Nervous System
+
+2 Diseases and Disorders of the Eye
+
+3 Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders
+
+4 Diseases and Disorders of the Respiratory System
+
+5 Diseases and Disorders of the Circulatory System
+
+6 Diseases and Disorders of the Digestive System
+
+7 Diseases and Disorders of the Hepatobiliary System and Pancreas
+
+8 Diseases and Disorders of the Musculoskeletal System and Connective Tissue
+
+9 Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast
+
+10 Endocrine, Nutritional and Metabolic Diseases and Disorders
+
+11 Diseases and Disorders of the Kidney and Urinary Tract
+
+12 Diseases and Disorders of the Male Reproductive System
+
+13 Diseases and Disorders of the Female Reproductive System
+
+14 Pregnancy, Childbirth and the Puerperium
+
+15 Newborns and Other Neonates with Conditions Originating in the Perinatal Period
+
+16 Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders
+
+17 Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy
+
+18 Infectious and Parasitic Diseases, Systemic or Unspecified Sites
+
+19 Mental Diseases and Disorders
+
+20 Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders
+
+21 Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment
+
+22 Burns
+
+23 Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts
+
+24 Human Immunodeficiency Virus (HIV) Infections
+
+25 Multiple Significant Trauma
+
+$~$
+
+The longest average length of stay among MDC groups was the 0 MDC group which corresponds to Pre-MDC or Ungroupable
+
+```{r}
+dat$APR.MDC.Code2 <- as.numeric(as.character(dat$APR.MDC.Code))
+
+ggplot(aes(x = APR.MDC.Code2, y = Length.of.Stay), data = dat) + stat_summary(fun = "mean", geom = "bar",  fill = "#69b3a2") +
+  ggtitle("Average Length of Stay by APR MDC Code") +
+  xlab("APR MDC Code") +
+  ylab("Average Length of Stay") +
+  scale_x_continuous(breaks = seq(0, 25))
+```
+
+As severity of illness increases average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
+
+```{r}
+dat$APR.Severity.of.Illness.Description <- as.character(dat$APR.Severity.of.Illness.Description)
+dat$APR.Severity.of.Illness.Description <- factor(ifelse(dat$APR.Severity.of.Illness.Description == "", "NA", dat$APR.Severity.of.Illness.Description))
+
+dat_sub <- dat[!dat$APR.Severity.of.Illness.Description == "NA", ]
+
+ggplot(aes(x = reorder(APR.Severity.of.Illness.Description, Length.of.Stay), y = Length.of.Stay, fill = APR.Severity.of.Illness.Description), data = dat_sub) + stat_summary(fun = "mean", geom = "bar") +
+  theme(legend.position = "none") +
+  ggtitle("Length of Stay by Severity of Illness") +
+  xlab("Severity of Illness") +
+  ylab("Average Length of Stay")
+```
+
+Cost per day is highest in patients with elective procedures and cases of trauma.
+
+```{r}
+ggplot(aes(x = Type.of.Admission, y = Cost.per.Day, fill = Type.of.Admission), data = dat) + stat_summary(fun = "mean", geom = "bar") +
+  theme(legend.position = "none") +
+  ggtitle("Cost per Day by Type of Admission") +
+  xlab("Admission Type") +
+  ylab("Average Cost per Day")
+```
+
+Average cost per day increased as age group increased with the highest average cost in the age group from 50 to 69. Surprisingly, average cost for those 70 or older was less than both age groups of 30 to 49 and 50 to 69.
+
+```{r}
+ggplot(aes(x = Age.Group, y = Cost.per.Day, fill = Age.Group), data = dat) + stat_summary(fun = "mean", geom = "bar") +
+  theme(legend.position = "none") +
+  ggtitle("Cost per day by Age Group") +
+  xlab("Age Group") +
+  ylab("Average Cost per day")
+```
 
 ## Filtering the Data
 
@@ -105,7 +233,7 @@ ccs_obgyn_desc <- grep(paste0(exclude_terms, collapse='|') , ccs_obgyn_desc, ign
 ccs_obgyn_codes <- ccs[ccs$CCS.Diagnosis.Description %in% ccs_obgyn_desc, 'CCS.Diagnosis.Code']
 
 # non-obgyn data
-dat <- dplyr::filter(dat, !(CCS.Diagnosis.Code %in% ccs_obgyn_codes | APR.DRG.Code %in% aprdrg_obgyn_codes | APR.MDC.Code == 14 | APR.MDC.Code == 15 | Abortion.Edit.Indicator == 'Y' | Type.of.Admission == 'Newborn')  & Birth.Weight == 0)
+dat <- dplyr::filter(dat, !(CCS.Diagnosis.Code %in% ccs_obgyn_codes | APR.DRG.Code %in% aprdrg_obgyn_codes | APR.MDC.Code == "14" | APR.MDC.Code == "15" | Abortion.Edit.Indicator == 'Y' | Type.of.Admission == 'Newborn')  & Birth.Weight == 0)
 
 dat <- dat[, which(!(colnames(dat) %in% c('Abortion.Edit.Indicator','Birth.Weight')))]
 
@@ -126,8 +254,40 @@ training <-dat[intrain,]
 testing <-dat[-intrain,]
 ```
 
-## Figures using subset of data
+## Figures using subset of data (Only Medicare)
 
+The distribution of length of stay in the subset with only patients with Medicare resembles the overall distribution, but the largest frequency of length of stay in this subset is 3 days.
+
+```{r}
+ggplot(dat, aes(x = Length.of.Stay)) + geom_histogram(binwidth = 1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  ggtitle("Distribution of Length of Stay") +
+  xlab("Length of Stay") +
+  ylab("Frequency") + 
+  scale_x_continuous(breaks = c(1, 10, 20, 30, 40), limits = c(0,40)) +
+  scale_y_continuous(labels = scales::comma)
+```
+
+The greatest number of medicare patients were admitted due to Diseases and Disorders of the Circulatory System (MDC Code 5) then  Diseases and Disorders of the Respiratory System (MDC Code 4) and Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8).
+
+```{r}
+dat$APR.MDC.Code2 <- as.numeric(as.character(dat$APR.MDC.Code))
+
+ggplot(aes(x = APR.MDC.Code2), data = dat) + geom_bar(fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  ggtitle("Frequency of APR MDC Code in Medicare Patients") +
+  xlab("APR MDC Code") +
+  ylab("Frequency") +
+  scale_x_continuous(breaks = seq(0, 25))
+```
+
+As expected, the majority of patients with Medicare are 70 or older and also many in the 50 to 69 age group.
+
+```{r}
+ggplot(aes(x = Age.Group), data = dat) + geom_bar(fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  ggtitle("Frequency of Individuals with Medicare by Age Group") +
+  xlab("Medicare") +
+  ylab("Frequency") +
+  scale_y_continuous(labels = scales::comma)
+```
 
 ## Analysis
 
