@@ -190,6 +190,17 @@ ggplot(aes(x = Age.Group, y = Cost.per.Day, fill = Age.Group), data = dat) + sta
   ylab("Average Cost per day")
 ```
 
+Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8), Diseases and Disorders of the Female Reproductive System (MDC Code 13) had the highest average costs per day. 
+
+
+```{r}
+ggplot(aes(x = APR.MDC.Code2, y = Cost.per.Day), data = dat) + stat_summary(fun = "mean", geom = "bar",  fill = "#69b3a2") +
+  ggtitle("Average Cost per day by APR MDC Code") +
+  xlab("APR MDC Code") +
+  ylab("Average Cost per day") +
+  scale_x_continuous(breaks = seq(0, 25))
+```
+
 ## Filtering the Data
 
 We chose to filter out observations that were related to pregnancy and newborn data as there are unique characteristics of their features. The birthweight feature, for example, was only reported for newborns. For all other observations, the birthweight was recorded as 0. With pregnancy related variables, some observations had a lot of missing data due to confidentiality issues in cases that may have been related to abortion (i.e. abortion procedure, miscarriage, ectopic pregnancy, etc.). Due to these unique characteritics of this data, we decided to filter out these observations.
@@ -498,20 +509,23 @@ linearReg <- lm(Cost.per.Day ~ Age.Group
                 + APR.MDC.Code
                 + APR.Severity.of.Illness.Code
                 + APR.Risk.of.Mortality
-                + Payment.Typology.1
-         #      + Payment.Typology.2 
-         #      + Payment.Typology.3
                 + Emergency.Department.Indicator
                 + Health.Service.Area
                 + Hospital.County 
                 + Facility.Id
                 , data = training)
-
+summary(linearReg)
 ```
+
+63 coefficients were not estimated due to singularities. These all occured with hospital counties and facility ids. This is likely due to the nested strucutre of the data because each facility id only occurs within a single hospital county which only occurs within a single health service area. 
+
+The output shows a R-squared of 0.2547 on the training data. 
 
 ```{r}
 #Evaluation Metrics
-testing <- testing[!testing$Health.Service.Area == "",]
+#testing <- testing[!testing$Health.Service.Area == "",]
+
+# Remove observations when cost per day are 0 because mean relative error will give infinity for those observations
 testing <- testing[!testing$Cost.per.Day == 0, ]
 
 linearReg_preds <- predict(linearReg, testing)
@@ -520,6 +534,8 @@ linearReg_MAE <- MAE(linearReg_preds, testing$Cost.per.Day)
 linearReg_MRE <- MRE(linearReg_preds, testing$Cost.per.Day)
 linearReg_RMSE <- RMSE(linearReg_preds, testing$Cost.per.Day)
 ```
+
+
 
 #### Hierarchical Linear Regression
 
@@ -532,14 +548,16 @@ Hierarchical_cost <- HLfit(Cost.per.Day ~  Age.Group
              + APR.MDC.Code
              + APR.Severity.of.Illness.Code
              + APR.Risk.of.Mortality
-             + Payment.Typology.1
-             + Payment.Typology.2 
-             + Payment.Typology.3
+        #     + Payment.Typology.1
+        #     + Payment.Typology.2 
+        #     + Payment.Typology.3
              + Emergency.Department.Indicator
              + Health.Service.Area
              + (1 | Hospital.County / Health.Service.Area)
              + (1 | Facility.Id / Hospital.County / Health.Service.Area), 
              family = gaussian, data = training)
+
+summary(Hierarchical_cost)
 ```
 
 ```{r}
@@ -549,5 +567,31 @@ hierarchical_preds <- predict(Hierarchical_cost, testing)
 hierarchical_MAE <- MAE(hierarchical_preds, testing$Cost.per.Day)
 hierarchical_MRE <- MRE(hierarchical_preds, testing$Cost.per.Day)
 hierarchical_RMSE <- RMSE(hierarchical_preds, testing$Cost.per.Day)
+```
+
+# Compare Models
+```{r}
+compare <- data.frame(matrix(, nrow = 4, ncol = 3))
+colnames(compare) <- c("", "Linear Regression", "Hierarchical Linear Regression")
+
+#Factor
+compare[1,1] <- "Mean Absolute Error"
+compare[2,1] <- "Mean Relative Error"
+compare[3,1] <- "Root Mean Squared Error"
+
+#Linear Regression
+compare[1,2] <- linearReg_MAE
+compare[2,2] <- linearReg_MRE
+compare[3,2] <- linearReg_RMSE
+  
+# Hierarchical Linear Regression
+compare[1,3] <- hierarchical_MAE
+compare[2,3] <- hierarchical_MRE
+compare[3,3] <- hierarchical_RMSE
+
+# Print table
+compare %>%
+  kbl() %>%
+  kable_styling()
 ```
 
