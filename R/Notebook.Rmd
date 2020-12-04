@@ -1,0 +1,393 @@
+---
+title: "Predicting Patient Length of Stay and Cost per Day"
+author: "Courtney Gale"
+date: "12/3/2020"
+output: html_document
+---
+
+## Introduction
+
+In this notebook, we aim to predict patient length of stay and cost per day. Patient length of stay is an important factor in hospital logistics. Knowing how long patients may need a room allows healthcare workers better allocate hospital resources. Length of stay also is an important metric that is used to evaluate a hospital's efficiency and the quality of care given to the patient. Predicting and understanding cost per day for a patient is also useful knowledge for a hospital and public health in general because understanding what siutations lead to high healthcare costs can inform future decisions on preventive care. Preventive care has been shown to be one of the best ways to decrease healthcare costs.
+
+```{r setup, include = FALSE, echo = FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+knitr::opts_chunk$set(root.dir = "~/Users/Courtney/Documents/Emory_3rd_Semester/CS - Machine Learning/CS534-Final")
+```
+
+```{r, message = FALSE}
+library(ggplot2)
+library(caret)
+library(future)
+library(spaMM)
+library(gt)
+```
+
+
+```{r, cache = TRUE}
+# Import the data
+path  <- './data/Hospital_Inpatient_Discharges__SPARCS_De-Identified___2015.csv'
+dat <- read.csv(path, 
+                colClasses = c(rep('factor',10),'character',rep('factor',21),'numeric', rep('factor',2), 'character', 'character'))
+```
+
+### Display the data
+
+```{r}
+data_sub <- head(dat)
+
+gt_first6 <-
+  gt(data_sub) %>%
+    tab_header(title = "First 6 Rows of Hospital Inpatient Data")
+
+gt_first6
+```
+
+### Features
+
+```{r}
+# Look at makeup of dataset
+str(dat)
+
+# Remove dollar sign from Total Costs and Total Charges and make numeric
+dat$Total.Charges <- as.numeric(substring(dat$Total.Charges, 2))
+dat$Total.Costs <- as.numeric(substring(dat$Total.Costs, 2))
+
+# make Length.of.Stay numeric
+dat[which(dat$Length.of.Stay == '120 +'), 'Length.of.Stay'] <- '121'
+dat$Length.of.Stay <- as.numeric(dat$Length.of.Stay)
+
+# Create cost per day variable
+dat$Cost.per.Day <- dat$Total.Costs / dat$Length.of.Stay
+```
+
+## Figures using all the data
+
+## Filtering the Data
+
+We chose to filter out observations that were related to pregnancy and newborn data as there are unique characteristics of their features. The birthweight feature, for example, was only reported for newborns. For all other observations, the birthweight was recorded as 0. With pregnancy related variables, some observations had a lot of missing data due to confidentiality issues in cases that may have been related to abortion (i.e. abortion procedure, miscarriage, ectopic pregnancy, etc.). Due to these unique characteritics of this data, we decided to filter out these observations.
+
+Rows meeting the following criteria were filtered 
+
+APR.MDC.Code = 14 ['Pregnancy, Childbirth And Puerperium']
+APR.MDC.Code = 15 ['Newborn And Other Neonates (Perinatal Period)']
+Abortion.Edit.Indicator = 'Y'
+Type.of.Admission = 'Newborn'
+
+```{r}
+
+# rename Zip.Code...3.digits
+colnames(dat)[which(colnames(dat) == 'Zip.Code...3.digits')] <- 'Zip'
+
+######
+# PREGNANCY-RELATED FILTERING
+
+aprdrg <- unique(dat[,c('APR.DRG.Code','APR.DRG.Description')])
+aprdrg <- aprdrg[order(aprdrg$APR.DRG.Code),]
+rownames(aprdrg) <- NULL
+# paste0(aprdrg[,1],'-',aprdrg[,2]) # view
+
+ccs <- unique(dat[,c('CCS.Diagnosis.Code','CCS.Diagnosis.Description')])
+ccs <- ccs[order(ccs$CCS.Diagnosis.Code),]
+rownames(ccs) <- NULL
+# paste0(ccs[,1],'-',ccs[,2]) # view
+
+# terms for filtering out OB-related
+obgyn_terms <- c('abortion', 'amniot', 'birth', 'C-section', 'delivery', 'fetal', 'fetopelvic', 'labor', 'liveborn', 'malposition', 'natal','neonat', 'obstetric', 'partum', 'pregnancy', 'OB-related', 'umbilical cord complication')
+exclude_terms <- c('non-obstetric', 'except in labor')
+
+# get APR.DRG.Code, CCS.Diagnosis.Code to filter out
+aprdrg_obgyn_desc <- grep(paste0(obgyn_terms, collapse='|'), aprdrg$APR.DRG.Description, ignore.case=TRUE, value=TRUE)
+aprdrg_obgyn_desc <- grep(paste0(exclude_terms, collapse='|') , aprdrg_obgyn_desc, ignore.case=TRUE, invert=TRUE, value=TRUE)
+aprdrg_obgyn_codes <- aprdrg[aprdrg$APR.DRG.Description %in% aprdrg_obgyn_desc, 'APR.DRG.Code']
+
+ccs_obgyn_desc <- grep(paste0(obgyn_terms, collapse='|'), ccs$CCS.Diagnosis.Description, ignore.case=TRUE, value=TRUE)
+ccs_obgyn_desc <- grep(paste0(exclude_terms, collapse='|') , ccs_obgyn_desc, ignore.case=TRUE, invert=TRUE, value=TRUE)
+ccs_obgyn_codes <- ccs[ccs$CCS.Diagnosis.Description %in% ccs_obgyn_desc, 'CCS.Diagnosis.Code']
+
+# non-obgyn data
+dat <- dplyr::filter(dat, !(CCS.Diagnosis.Code %in% ccs_obgyn_codes | APR.DRG.Code %in% aprdrg_obgyn_codes | APR.MDC.Code == 14 | APR.MDC.Code == 15 | Abortion.Edit.Indicator == 'Y' | Type.of.Admission == 'Newborn')  & Birth.Weight == 0)
+
+dat <- dat[, which(!(colnames(dat) %in% c('Abortion.Edit.Indicator','Birth.Weight')))]
+
+```
+
+## Subset data 
+
+Due to the amount of computing power that it would take to analyze the whole dataset, we chose to subset the data by the Primary Payment type of Medicare. 
+
+```{r}
+# Subset to only medicare patients
+dat <- subset(dat, dat$Payment.Typology.1 == "Medicare")
+
+# Split training and testing set 
+set.seed(123)
+intrain <-createDataPartition(y=dat$Cost.per.Day,p=0.7,list=FALSE)
+training <-dat[intrain,]
+testing <-dat[-intrain,]
+```
+
+## Figures using subset of data
+
+
+## Analysis
+
+Mean absolute error, mean relative error and root mean squared error were used as evaluation metrics for comparing our models.
+
+```{r}
+# Error functinos
+MAE <- function(pred, actual) {mean(abs(pred - actual))}
+MRE <- function(pred, actual) {mean(abs(pred - actual)/abs(actual))}
+RMSE <- function(pred, actual) {sqrt(mean((actual - pred)^2))}
+```
+
+
+### Length of Stay
+
+#### Linear Regression
+We wanted to focus our efforts in predicting length of stay through regression methods and not classification methods because knowing the exact number of days a patient would need to stay would be overall more useful than knowing a range of days a patient may stay. We start with a simple linear regression as our base model although we acknowledge that fundamentally, this is not the proper model that we want to use to model length of stay. 
+
+```{r}
+linearReg <- lm(Length.of.Stay ~ Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Payment.Typology.1
+                + Emergency.Department.Indicator
+                + Health.Service.Area
+                + Hospital.County 
+          #      + Facility.Id
+              , data = training)
+summary(linearReg)
+
+linearReg_preds <- predict(linearReg, testing)
+
+# Evaluate
+linearReg_MAE <- MAE(linearReg_preds, testing$Length.of.Stay)
+
+linearReg_MRE <- MRE(linearReg_preds, testing$Length.of.Stay)
+
+linearReg_RMSE <- RMSE(linearReg_preds, testing$Length.of.Stay)
+
+```
+
+
+#### Poisson Model
+When you look at thet possible values of length of stay, you see that length of stay can only be integer values greater than 1. Linear regression, on the other hand, will give you continuous values from -infinty to infinity. Therefore, our next step was to model length of stay as a Poisson regression which models count data. This still isn't quite the right model as a normal Poisson can take on values of 0. Since this is inpatient data, there will never be a patient who has a length of stay as 0.
+
+```{r}
+Poi <- glm(Length.of.Stay ~ Age.Group
+                        + Gender
+                        + Race
+                        + Ethnicity
+                        + Type.of.Admission
+                        + APR.MDC.Code
+                        + APR.Severity.of.Illness.Code
+                        + APR.Risk.of.Mortality
+                        + Payment.Typology.1
+                        + Emergency.Department.Indicator
+                        + Health.Service.Area
+                        + Hospital.County
+                   #     + Facility.Id , 
+                        family = Poisson(link = 'log'),
+                        data = training)
+summary(Poi)
+
+Poi_preds <- predict(Poi, testing)
+
+# Evaluate
+Poi_MAE <- MAE(Poi_preds, testing$Length.of.Stay)
+Poi_MRE <- MRE(Poi_preds, testing$Length.of.Stay)
+Poi_RMSE <- RMSE(Poi_preds, testing$Length.of.Stay)
+
+```
+
+
+#### Zero-Truncated Poisson Model
+Next we look at the Zero-Truncated Poisson model. This is a modification of the Poisson model, and it can only take integer values from 1 to infinity. Therfore, this model is more appropriate to model length of stay because it will never take 0 values.
+
+```{r}
+# GLM with zero-truncated Poisson
+model1 <- glm(Length.of.Stay ~ 
+		+ Age.Group
+		# + Zip
+		+ Gender
+		+ Race
+		+ Ethnicity
+		+ Type.of.Admission
+		# + CCS.Diagnosis.Code
+		# + CCS.Procedure.Code
+		# + APR.DRG.Code
+		+ APR.MDC.Code
+		+ APR.Severity.of.Illness.Code
+		+ APR.Risk.of.Mortality
+		+ Payment.Typology.1
+		# + Payment.Typology.2
+		# + Payment.Typology.3
+		+ Emergency.Department.Indicator
+		+ Health.Service.Area
+		+ Hospital.County 
+		# + Facility.Id,
+		,
+	family = Tpoisson(link = 'log'),
+	data = training)
+summary(model1)
+
+
+
+model1_2 <- glm(Length.of.Stay ~ 
+		+ Age.Group
+		# + Zip
+		+ Gender
+		+ Race
+		+ Ethnicity
+		+ Type.of.Admission
+		# + CCS.Diagnosis.Code
+		# + CCS.Procedure.Code
+		# + APR.DRG.Code
+		+ APR.MDC.Code
+		+ APR.Severity.of.Illness.Code
+		+ APR.Risk.of.Mortality
+		+ Payment.Typology.1
+		# + Payment.Typology.2
+		# + Payment.Typology.3
+		+ Emergency.Department.Indicator
+		+ Health.Service.Area
+		+ Hospital.County 
+		+ Facility.Id,
+		,
+	family = Tpoisson(link = 'log'),
+	data = training)
+summary(model1_2)
+```
+
+
+#### Hierarchical Zero-Truncated Poisson Model
+Lastly, we fit a hierarchical zero-truncted poisson model. If you look at the variables for Health Serivce Area, County, and Facility, you can see that these are nested varaibles. For example, specific facility ids will only occur in specific counties which only occur in specific health areas. By modeling length of stay as a multi-level model, we can take into account the area-level, county-level, and facility-level effects on length of stay by accounting for unexplained variation in hospital service areas, hospital counties, and facilities. 
+
+```{r}
+# GLM with zero-truncated Poisson, nesting
+model2 <- HLfit(Length.of.Stay ~ 
+		+ Age.Group
+		# + Zip
+		+ Gender
+		+ Race
+		+ Ethnicity
+		+ Type.of.Admission
+		# + CCS.Diagnosis.Code
+		# + CCS.Procedure.Code
+		# + APR.DRG.Code
+		+ APR.MDC.Code
+		+ APR.Severity.of.Illness.Code
+		+ APR.Risk.of.Mortality
+		+ Payment.Typology.1
+		# + Payment.Typology.2
+		# + Payment.Typology.3
+		+ Emergency.Department.Indicator
+		+ Health.Service.Area
+		+ (1 | Hospital.County / Health.Service.Area)
+		,
+	family = Tpoisson(link = 'log'), 
+	data = training)
+summary(model2, details=TRUE, max.print=99999999)
+
+
+# GLM with zero-truncated Poisson, nesting
+model3 <- HLfit(Length.of.Stay ~ 
+		+ Age.Group
+		# + Zip
+		+ Gender
+		+ Race
+		+ Ethnicity
+		+ Type.of.Admission
+		# + CCS.Diagnosis.Code
+		# + CCS.Procedure.Code
+		# + APR.DRG.Code
+		+ APR.MDC.Code
+		+ APR.Severity.of.Illness.Code
+		+ APR.Risk.of.Mortality
+		+ Payment.Typology.1
+		# + Payment.Typology.2
+		# + Payment.Typology.3
+		+ Emergency.Department.Indicator
+		+ Health.Service.Area
+		+ (1 | Hospital.County / Health.Service.Area)
+		+ (1 | Facility.Id / Hospital.County / Health.Service.Area)
+		,
+	family = Tpoisson(link = 'log'), 
+	data = training)
+summary(model3, details=TRUE, max.print=99999999)
+```
+
+
+### Cost per Day
+
+### Linear Regression
+In predicting cost per day, we focused on comparing simple linear regression results to the results for a hierarchical linear model accounting for the variance in serivce area, county, and facility. We hoped and predicted that we would see an improvement in performance by using a more complicated and computationally heavy approach using the hierarchical structure. 
+
+```{r}
+# Linear regression for cost per day
+linearReg <- lm(Cost.per.Day ~ Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Payment.Typology.1
+         #      + Payment.Typology.2 
+         #      + Payment.Typology.3
+                + Emergency.Department.Indicator
+                + Health.Service.Area
+                + Hospital.County 
+                + Facility.Id
+                , data = training)
+
+```
+
+```{r}
+#Evaluation Metrics
+testing <- testing[!testing$Health.Service.Area == "",]
+testing <- testing[!testing$Cost.per.Day == 0, ]
+
+linearReg_preds <- predict(linearReg, testing)
+
+linearReg_MAE <- MAE(linearReg_preds, testing$Cost.per.Day)
+linearReg_MRE <- MRE(linearReg_preds, testing$Cost.per.Day)
+linearReg_RMSE <- RMSE(linearReg_preds, testing$Cost.per.Day)
+```
+
+#### Hierarchical Linear Regression
+
+```{r}
+Hierarchical_cost <- HLfit(Cost.per.Day ~  Age.Group
+             + Gender
+             + Race
+             + Ethnicity
+             + Type.of.Admission
+             + APR.MDC.Code
+             + APR.Severity.of.Illness.Code
+             + APR.Risk.of.Mortality
+             + Payment.Typology.1
+             + Payment.Typology.2 
+             + Payment.Typology.3
+             + Emergency.Department.Indicator
+             + Health.Service.Area
+             + (1 | Hospital.County / Health.Service.Area)
+             + (1 | Facility.Id / Hospital.County / Health.Service.Area), 
+             family = gaussian, data = training)
+```
+
+```{r}
+# Evaluation metrics
+hierarchical_preds <- predict(Hierarchical_cost, testing)
+
+hierarchical_MAE <- MAE(hierarchical_preds, testing$Cost.per.Day)
+hierarchical_MRE <- MRE(hierarchical_preds, testing$Cost.per.Day)
+hierarchical_RMSE <- RMSE(hierarchical_preds, testing$Cost.per.Day)
+```
+
