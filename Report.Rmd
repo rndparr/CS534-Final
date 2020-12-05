@@ -25,6 +25,15 @@ output:
     keep_md: true
 ---
 
+
+# Introduction
+Predicting patient outcomes early in the admission process is an important part of hospital management [@tierneyPredictingInpatientCosts1995,@tsaiLengthHospitalStay2016]. Estimating a patient's length of stay, for instance, assists in logistics such as allocation of hospital resources [@tsaiLengthHospitalStay2016]. The ability to predict patient-specific healthcare costs helps us gain understanding of the situations that lead to high healthcare costs and can inform future decisions in preventative care, which has been shown to be one of the best ways to decrease healthcare cost [@yangMachineLearningApproaches2018].  
+
+For our final project we will be using the Statewide Planning and Research Cooperative System (SPARCS) Inpatient De-identified File dataset (originally provided the New York State Department of Health [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017]) as it appears on Kaggle to predict length of stay (LOS) in days, a metric used to assess hospital efficiency and quality of care [@oecdAverageLengthStay2011,@robinsonPredictionHospitalLength1966,@tsaiLengthHospitalStay2016], and patient cost per day. The full dataset contains nearly 2.35 million de-identified observations and 36 features about hospital inpatient discharge data for 2015.
+
+
+# Set Up
+
 ```{css, echo = FALSE}
 pre {
   max-height: 300px;
@@ -40,29 +49,43 @@ pre[class] {
 knitr::opts_chunk$set(cache = TRUE, 
   # cache.lazy = FALSE, 
   error = TRUE, 
-  warning = TRUE,
+  warning = FALSE,
   class.source = 'fold-show',
   tidy = TRUE,
   fig.align = 'center')
 ```
 
-# Introduction
-Predicting patient outcomes early in the admission process is an important part of hospital management [@tierneyPredictingInpatientCosts1995,tsaiLengthHospitalStay2016]. Estimating a patient's length of stay, for instance, assists in logistics such as allocation of hospital resources [@tsaiLengthHospitalStay2016]. The ability to predict patient-specific healthcare costs helps us gain understanding of the situations that lead to high healthcare costs and can inform future decisions in preventative care, which has been shown to be one of the best ways to decrease healthcare cost [@yangMachineLearningApproaches2018].  
+## Libraries
 
-For our final project we will be using the Statewide Planning and Research Cooperative System (SPARCS) Inpatient De-identified File dataset (originally provided the New York State Department of Health [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017]) as it appears on Kaggle to predict length of stay (LOS) in days, a metric used to assess hospital efficiency and quality of care [@oecdAverageLengthStay2011,robinsonPredictionHospitalLength1966,tsaiLengthHospitalStay2016], and patient cost per day. The full dataset contains nearly 2.35 million de-identified observations and 36 features about hospital inpatient discharge data for 2015.
-
-
-```{r, load-libraries, class.source = NULL, message = FALSE}
+```{r, load-libraries, message = FALSE}
 library(ggplot2)
 library(kableExtra)
 library(spaMM)
 spaMM.options('nb_cores' = future::availableCores() - 2)
-library(gt)
-# caret
-# scales
-# removed: dplyr
 ```
 
+## Miscellaneous Functions
+
+```{r, other-functions, message = FALSE}
+report_table <- function(x, w = NULL, h = '500px', ec = NULL){
+  scroll_box(
+    kable_paper(
+      kable_styling(
+        kbl(x, 
+          row.names = FALSE), 
+        full_width = T, 
+        position = 'center',
+        bootstrap_options = c('striped', 'hover'),
+        fixed_thead = T), 
+      full_width = T), 
+    fixed_thead = T, 
+    height = h,
+    width = w,
+    extra_css = ec)
+}
+```
+
+## Data
 
 ```{r, data-import}
 # Import the data
@@ -73,7 +96,11 @@ dat <- read.csv('input/Hospital_Inpatient_Discharges__SPARCS_De-Identified___201
   na.strings = c('NA', ''))
 ```
 
-## Features
+```{r, data-display-raw, class.source = NULL}
+report_table(head(dat, 50))
+```
+
+## Clean Data
 ```{r, data-clean}
 
 # rename Zip.Code...3.digits
@@ -97,6 +124,9 @@ dat$APR.Severity.of.Illness.Description <- factor(
   dat$APR.Severity.of.Illness.Description, 
   labels = c('Minor', 'Moderate', 'Major', 'Extreme'))
 
+dat$Type.of.Admission <- factor(dat$Type.of.Admission,
+  labels = c('Elective', 'Trauma', 'Emergency', 'Urgent', 'Newborn', 'Not Available'))
+
 # Remove columns:
 ## discharge year is 2015 for all rows
 ## provider license numbers are many-leveled factors unused in analysis
@@ -118,8 +148,6 @@ summary(dat)
 
 ```
 
-## Display the data
-
 ```{r, data-display}
 # data_sub <- head(dat)
 
@@ -128,26 +156,55 @@ summary(dat)
 
 # gt_first6
 
-scroll_box(
-  kable_paper(
-    kable_styling(
-      kbl(head(dat, 50), 
-        row.names = FALSE), 
-      full_width = T, 
-      position = 'center',
-      bootstrap_options = c('striped', 'hover'),
-      fixed_thead = T), 
-    full_width = T), 
-  fixed_thead = T, 
-  # width = '400px', 
-  height = '500px')
-
+report_table(head(dat, 50))
+# scroll_box(
+#   kable_paper(
+#     kable_styling(
+#       kbl(head(dat, 50), 
+#         row.names = FALSE,
+#         align = 'c'), 
+#       full_width = T, 
+#       position = 'center',
+#       bootstrap_options = c('striped', 'hover'),
+#       fixed_thead = T), 
+#     full_width = T), 
+#   fixed_thead = T, 
+#   # width = '400px', 
+#   height = '500px')
 
 ```
 
+## MDC Codes
+
+The following codes are Major Diagnostic Categories (MDC) for that generally correspond to a major organ system. [@3mhealthinformationsystemsAllPatientRefined]
+
+```{r, mdc-codes, class.source = NULL}
+mdc_codes <- data.frame('MDC Code' = as.character(0:25), 
+  'Description' = c('Pre-MDC or Ungroupable', 'Diseases and Disorders of the Nervous System', 'Diseases and Disorders of the Eye', 'Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders', 'Diseases and Disorders of the Respiratory System', 'Diseases and Disorders of the Circulatory System', 'Diseases and Disorders of the Digestive System', 'Diseases and Disorders of the Hepatobiliary System and Pancreas', 'Diseases and Disorders of the Musculoskeletal System and Connective Tissue', 'Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast', 'Endocrine, Nutritional and Metabolic Diseases and Disorders', 'Diseases and Disorders of the Kidney and Urinary Tract', 'Diseases and Disorders of the Male Reproductive System', 'Diseases and Disorders of the Female Reproductive System', 'Pregnancy, Childbirth and the Puerperium', 'Newborns and Other Neonates with Conditions Originating in the Perinatal Period', 'Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders', 'Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy', 'Infectious and Parasitic Diseases, Systemic or Unspecified Sites', 'Mental Diseases and Disorders', 'Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders', 'Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment', 'Burns', 'Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts', 'Human Immunodeficiency Virus (HIV) Infections', 'Multiple Significant Trauma'))
 
 
-# Figures using all the data
+report_table(mdc_codes, 
+  w = '800px', 
+  ec = 'position: center; display: block; margin: auto;')
+# scroll_box(
+#   kable_paper(
+#     kable_styling(
+#       kbl(mdc_codes, 
+#         row.names = FALSE), 
+#       full_width = T, 
+#       position = 'center',
+#       bootstrap_options = c('striped', 'hover'),
+#       fixed_thead = T), 
+#     full_width = T,
+#     position = 'center'), 
+#   fixed_thead = T, 
+#   width = '800px', 
+#   height = '400px',
+#   extra_css = 'position: center; display: block; margin: auto;')
+```
+# Preliminary Data Exploration
+
+## Figures
 
 Length of stay goes from 1 to 121 (previously 120+) but the majority of the data lies between 1 and 30. With the most patients having stayed 2 days. 
 
@@ -181,30 +238,6 @@ ggplot(dat,
     limits = c(0, 20))
 ```
 
-The following codes are Major Diagnostic Categories (MDC) for that generally correspond to a major organ system. 
-
-
-```{r, mdc-codes, class.source = NULL}
-mdc_codes <- data.frame('MDC Code' = as.character(0:25), 
-  'Description' = c('Pre-MDC or Ungroupable', 'Diseases and Disorders of the Nervous System', 'Diseases and Disorders of the Eye', 'Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders', 'Diseases and Disorders of the Respiratory System', 'Diseases and Disorders of the Circulatory System', 'Diseases and Disorders of the Digestive System', 'Diseases and Disorders of the Hepatobiliary System and Pancreas', 'Diseases and Disorders of the Musculoskeletal System and Connective Tissue', 'Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast', 'Endocrine, Nutritional and Metabolic Diseases and Disorders', 'Diseases and Disorders of the Kidney and Urinary Tract', 'Diseases and Disorders of the Male Reproductive System', 'Diseases and Disorders of the Female Reproductive System', 'Pregnancy, Childbirth and the Puerperium', 'Newborns and Other Neonates with Conditions Originating in the Perinatal Period', 'Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders', 'Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy', 'Infectious and Parasitic Diseases, Systemic or Unspecified Sites', 'Mental Diseases and Disorders', 'Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders', 'Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment', 'Burns', 'Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts', 'Human Immunodeficiency Virus (HIV) Infections', 'Multiple Significant Trauma'))
-
-scroll_box(
-  kable_paper(
-    kable_styling(
-      kbl(mdc_codes, 
-        caption = 'Major Diagnostic Categories',
-        row.names = FALSE), 
-      full_width = T, 
-      position = 'center',
-      bootstrap_options = c('striped', 'hover'),
-      fixed_thead = T), 
-    full_width = T), 
-  fixed_thead = T, 
-  width = '500px', 
-  height = '400px')
-```
-
-
 The longest average length of stay among MDC groups was the 0 MDC group which corresponds to Pre-MDC or Ungroupable
 
 ```{r, los-avg, class.source = NULL, class.source = NULL, message = FALSE}
@@ -221,7 +254,7 @@ ggplot(dat,
 
 As severity of illness increases average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
 
-```{r, los-by-aprseverity, class.source = NULL, class.source = NULL, message = FALSE}
+```{r, los-by-aprseverity, class.source = NULL, message = FALSE}
 ggplot(subset(dat, !is.na(APR.Severity.of.Illness.Description)), 
   aes(
     x = reorder(APR.Severity.of.Illness.Description, Length.of.Stay), 
@@ -346,7 +379,7 @@ dat <- dat[-obgyn_rows, ]
 dat <- dat[, which(!(colnames(dat) %in% c('Abortion.Edit.Indicator','Birth.Weight')))]
 ```
 
-## Subset data 
+# Medicare Patient Data
 
 Due to the amount of computing power that it would take to analyze the whole dataset, we chose to subset the data by the Primary Payment type of Medicare. 
 
@@ -354,17 +387,12 @@ Due to the amount of computing power that it would take to analyze the whole dat
 # Subset to only medicare patients
 dat <- subset(dat, dat$Payment.Typology.1 == 'Medicare')
 
-# Split train and test set 
-set.seed(123)
-train_rows <- caret::createDataPartition(
-  y = dat$Length.of.Stay, 
-  p = 0.7, 
-  list = FALSE)
-train <- dat[train_rows,]
-test <- dat[-train_rows,]
+# drop unused levels
+dat <- droplevels(dat)
 ```
 
-## Figures using subset of data (Only Medicare)
+## Figures
+ <!-- using subset of data (Only Medicare) -->
 
 The distribution of length of stay in the subset with only patients with Medicare resembles the overall distribution, but the largest frequency of length of stay in this subset is 3 days.
 
@@ -409,9 +437,23 @@ ggplot(dat, aes(x = Age.Group)) +
   scale_y_continuous(labels = scales::comma)
 ```
 
-# Analysis
+# Analysis 
 
-Mean absolute error, mean relative error and root mean squared error were used as evaluation metrics for comparing our models.
+```{r, test-train}
+# Split train and test set 
+set.seed(123)
+train_rows <- caret::createDataPartition(
+  y = dat$Length.of.Stay, 
+  p = 0.7, 
+  list = FALSE)
+train <- dat[train_rows,]
+test <- dat[-train_rows,]
+```
+
+## Evaluation Metrics
+
+We will be using the same evaluation metrics used in the literature for the assessment similar length of stay prediction models:
+$R^2$ [@tierneyPredictingInpatientCosts1995], mean absolute error (MAE) [@tsaiLengthHospitalStay2016,@tierneyPredictingInpatientCosts1995], mean relative error (MRE) [@tsaiLengthHospitalStay2016], and root mean squared error (RMSE) [@tsaiLengthHospitalStay2016].
 
 ```{r, error-funtions}
 # Error functions
@@ -444,7 +486,7 @@ linearReg <- lm(Length.of.Stay ~ Age.Group
                 + APR.MDC.Code
                 + APR.Severity.of.Illness.Code
                 + APR.Risk.of.Mortality
-                + Payment.Typology.1
+                # + Payment.Typology.1
                 + Emergency.Department.Indicator
                 + Health.Service.Area
                 + Hospital.County 
@@ -517,7 +559,7 @@ model1 <- glm(Length.of.Stay ~
 		+ APR.MDC.Code
 		+ APR.Severity.of.Illness.Code
 		+ APR.Risk.of.Mortality
-		+ Payment.Typology.1
+		# + Payment.Typology.1
 		# + Payment.Typology.2
 		# + Payment.Typology.3
 		+ Emergency.Department.Indicator
@@ -691,7 +733,7 @@ hierarchical_MRE <- MRE(hierarchical_preds, test$Cost.per.Day)
 hierarchical_RMSE <- RMSE(hierarchical_preds, test$Cost.per.Day)
 ```
 
-# Model Comparison
+## Model Comparison
 ```{r, model-comp, eval = FALSE}
 compare <- data.frame(matrix(, nrow = 4, ncol = 3))
 colnames(compare) <- c('', 'Linear Regression', 'Hierarchical Linear Regression')
@@ -715,9 +757,8 @@ compare[3,3] <- hierarchical_RMSE
 kable_styling(kbl(compare))
 ```
 
-
-
 The evaluation metrics between the two methods are very similar indicating that there wasn't much to gain in performance by using the more computationally intensive method. We believe this could perhaps be the case because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. However, the reward you do get for running the hierarchical model is that it better represents the structure of the data, and it knows how to treat the nested variables. Since linear regression does not have the knowledge of the correlation between the nested variables, it ends up not being able to estimate certain coefficients and you get the warning "prediction from a rank-deficient fit may be misleading" when trying to predict using the linear regression model. Thus, it is better to take into account the hierarchical structure of the results to be able to trust the results of your predictions.
+
 
 # Bibliography
 
