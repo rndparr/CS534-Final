@@ -11,7 +11,7 @@ In this notebook, we aim to predict patient length of stay and cost per day. Pat
 
 ```{r setup, include = FALSE, echo = FALSE}
 knitr::opts_chunk$set(cache = TRUE)
-knitr::opts_chunk$set(root.dir = "~/Users/Courtney/Documents/Emory_3rd_Semester/CS - Machine Learning/CS534-Final")
+#knitr::opts_chunk$set(root.dir = "~/Users/Courtney/Documents/Emory_3rd_Semester/CS - Machine Learning/CS534-Final")
 ```
 
 ```{r, message = FALSE}
@@ -23,7 +23,7 @@ library(gt)
 ```
 
 
-```{r, cache = TRUE}
+```{r}
 # Import the data
 path  <- '../data/Hospital_Inpatient_Discharges__SPARCS_De-Identified___2015.csv'
 dat <- read.csv(path, 
@@ -540,6 +540,8 @@ linearReg_RMSE <- RMSE(linearReg_preds, testing$Cost.per.Day)
 #### Hierarchical Linear Regression
 
 ```{r}
+start.time = Sys.time()
+spaMM.options('nb_cores' = availableCores() - 1)
 Hierarchical_cost <- HLfit(Cost.per.Day ~  Age.Group
              + Gender
              + Race
@@ -552,12 +554,36 @@ Hierarchical_cost <- HLfit(Cost.per.Day ~  Age.Group
         #     + Payment.Typology.2 
         #     + Payment.Typology.3
              + Emergency.Department.Indicator
-             + Health.Service.Area
+             + (1 | Health.Service.Area)
              + (1 | Hospital.County / Health.Service.Area)
              + (1 | Facility.Id / Hospital.County / Health.Service.Area), 
              family = gaussian, data = training)
+end.time <- Sys.time()
+
+time <- end.time - start.time
 
 summary(Hierarchical_cost)
+
+
+Hierarchical_cost <- lmer(Cost.per.Day ~  Age.Group
+             + Gender
+             + Race
+             + Ethnicity
+             + Type.of.Admission
+             + APR.MDC.Code
+             + APR.Severity.of.Illness.Code
+             + APR.Risk.of.Mortality
+        #     + Payment.Typology.1
+        #     + Payment.Typology.2 
+        #     + Payment.Typology.3
+             + Emergency.Department.Indicator
+             + (1 | Health.Service.Area)
+             + (1 | Hospital.County)
+             + (1 | Facility.Id),
+          data = training)
+
+summary(Hierarchical_cost)
+
 ```
 
 ```{r}
@@ -571,7 +597,7 @@ hierarchical_RMSE <- RMSE(hierarchical_preds, testing$Cost.per.Day)
 
 # Compare Models
 ```{r}
-compare <- data.frame(matrix(, nrow = 4, ncol = 3))
+compare <- data.frame(matrix(, nrow = 3, ncol = 3))
 colnames(compare) <- c("", "Linear Regression", "Hierarchical Linear Regression")
 
 #Factor
@@ -590,8 +616,10 @@ compare[2,3] <- hierarchical_MRE
 compare[3,3] <- hierarchical_RMSE
 
 # Print table
+library(kableExtra)
 compare %>%
   kbl() %>%
   kable_styling()
 ```
 
+The evaluation metrics between the two methods are very similar indicating that there wasn't much to gain in performance by using the more computationally intensive method. We believe this could perhaps be the case because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. However, the reward you do get for running the hierarchical model is that it better represents the structure of the data, and it knows how to treat the nested variables. Since linear regression does not have the knowledge of the correlation between the nested variables, it ends up not being able to estimate certain coefficients and you get the warning "prediction from a rank-deficient fit may be misleading" when trying to predict using the linear regression model. Thus, it is better to take into account the hierarchical structure of the results to be able to trust the results of your predictions.
