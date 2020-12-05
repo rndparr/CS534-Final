@@ -190,6 +190,8 @@ report_table(mdc_codes,
 
 ## Figures
 
+### Distribution of Length of Stay
+
 Length of stay goes from 1 to 121 (previously 120+) but the majority of the data lies between 1 and 30. With the most patients having stayed 2 days. 
 
 ```{r, los-dist, class.source = NULL, message = FALSE}
@@ -206,6 +208,8 @@ ggplot(dat, aes(x = Length.of.Stay)) +
   scale_y_continuous(labels = scales::comma)
 ```
 
+### Length of Stay across Age Groups
+
 Median length of stay increases as age group increases. The interquartile range of length of stay also increases as age group increases.
 
 ```{r, los-by-age, class.source = NULL, message = FALSE}
@@ -221,6 +225,8 @@ ggplot(dat,
   scale_y_continuous(breaks = c(1, 10, 20), 
     limits = c(0, 20))
 ```
+
+### Average Length of Stay by MDC Code
 
 The longest average length of stay among MDC groups was the 0 MDC group which corresponds to Pre-MDC or Ungroupable. As discussed earlier, the Pre-MDC group is primarily composed of transplant patients which explains the longer average time spent as an inpatient.
 
@@ -263,6 +269,8 @@ girafe_options(
 
 ```
 
+### Average Length of Stay by Severity of Illness 
+
 As severity of illness increases, average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
 
 ```{r, los-by-aprseverity, class.source = NULL, message = FALSE}
@@ -279,6 +287,7 @@ ggplot(subset(dat, !is.na(APR.Severity.of.Illness.Description)),
   ylab('Average Length of Stay')
 ```
 
+### Average Length of Stay by Facility Ownership Type
 
 Ownership type was one of the variables merged from the second dataset which gave additional information about facility type. There is a clear distinction in mean length of stay between the different ownership types with the longest average length of stay being for a Public Benefit Corporation (PBC). A PBC is a type of for-profit entity. Municipality owned hospitals, which are run by the local government, have the second largest average length of stay 
 
@@ -310,6 +319,8 @@ ggplot(dat,
     limits = c(0, 20))
 ```
 
+### Average Length of Stay by Type of Facility 
+
 The average length of stay is greater in hospitals than in Critical Access Hospitals. Critical Access Hospitals are rural hospitals overseen by the Centers for Medicare and Medicaid Services (CMS) that meet the following criteria: 25 or fewer acute care inpatient beds, at least 35 miles from the nearest hospital, keep the average length of stay for the year at 96 hours or less for acute care patients, and have emergency care services available 24/7. By keeping their status as a Critical Access Hospital, they receive certain benefits from CMS which would Critical Access Hopsitals to keep the length of stay lower in order to keep their status. [@ruralhealthinformationhubCriticalAccessHospitals2019].
 
 ```{r, los-facility-type, class.source = NULL, class.source = NULL, message = FALSE}
@@ -324,6 +335,8 @@ ggplot(dat,
   xlab('Facility Type') +
   ylab('Average Length of Stay')
 ```
+
+### Average Cost per Day by Type of Admission
 
 Cost per day is highest in patients with elective procedures and cases of trauma.
 
@@ -340,6 +353,8 @@ ggplot(dat,
   ylab('Average Cost per Day')
 ```
 
+### Average Cost per Day Across Age Groups
+
 Average cost per day increased as age group increased with the highest average cost in the age group from 50 to 69. Surprisingly, average cost for those 70 or older was less than both age groups of 30 to 49 and 50 to 69.
 
 ```{r, cpd-by-age, class.source = NULL, class.source = NULL, message = FALSE}
@@ -354,6 +369,8 @@ ggplot(dat,
   xlab('Age Group') +
   ylab('Average Cost per day')
 ```
+
+### Average Cost per Day across MDC Codes
 
 Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8), Diseases and Disorders of the Female Reproductive System (MDC Code 13) had the highest average costs per day. 
 
@@ -402,6 +419,8 @@ girafe_options(
 
 ```
 
+### Average Cost per day by Facility Ownership Type
+
 Municipality owned hospitals' cost per patient per day is at least $1000 more on average than the other four ownership types. 
 
 ```{r, cpd-owner-type, class.source = NULL, class.source = NULL, message = FALSE}
@@ -419,13 +438,46 @@ ggplot(dat,
 
 ## Data Filtering
 
-We chose to filter out observations that were related to pregnancy and newborn data as there are unique characteristics of their features. The birthweight feature, for example, was only reported for newborns. For all other observations, the birthweight was recorded as 0. With pregnancy related variables, some observations had a lot of missing data due to confidentiality issues in cases that may have been related to abortion (i.e. abortion procedure, miscarriage, ectopic pregnancy, etc.). Due to these unique characteritics of this data, we decided to filter out these observations.
+### Distribution of Birth Weight 
 
-Rows meeting the following criteria were filtered 
+We chose to filter out observations that were related to pregnancy and newborn data as there are unique characteristics of their features. The birthweight feature, for example, was only reported for newborns. For all other observations, the birthweight was recorded as 0. 
+
+In the figure below, we see that over 2 million observations have birth weight equal to 0.
+
+```{r, birthweight, class.source = NULL, class.source = NULL, message = FALSE}
+ggplot(dat, 
+  aes(x = Birth.Weight)) +
+  geom_histogram(fill = '#69b3a2') +
+  ggtitle('Distribution of Birth Weight') +
+  xlab('Birth Weight (grams)') +
+  ylab('Frequency')
+```
+
+### Redacted Data for Observations Related to Abortion
+
+With pregnancy related variables, some observations had missing data due to confidentiality issues in cases that may have been related to abortion (i.e. abortion procedure, miscarriage, ectopic pregnancy, etc.). We found that 100% of missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y' meaning the discharge record had some mention of abortion. The plot below shows the MDC codes that had observations where Abortion.Edit.Indicator was equal to 'Y'. The majority of these observations were when APR MDC Code was equal to 14 which corresponds to the MDC 'Pregnancy, Childbirth And Puerperium'.
+
+```{r, abortion, class.source = NULL, class.source = NULL, message = FALSE}
+ggplot(subset(dat, dat$Abortion.Edit.Indicator == "Y"), 
+  aes(x = APR.MDC.Code, 
+    fill = Abortion.Edit.Indicator)) +
+  geom_bar() +
+  ggtitle('Frequency of Observations Related to Abortion by MDC Code') +
+  xlab('APR MDC Code') +
+  ylab('Frequency') +
+  scale_y_continuous(labels = scales::comma)
+```
+
+### Filtering Criteria
+
+Due to these unique characteritics of this data, we decided to filter out observations with the following critera:
 
 APR.MDC.Code = 14 ['Pregnancy, Childbirth And Puerperium']
+
 APR.MDC.Code = 15 ['Newborn And Other Neonates (Perinatal Period)']
+
 Abortion.Edit.Indicator = 'Y'
+
 Type.of.Admission = 'Newborn'
 
 ```{r, filtering}
@@ -476,9 +528,11 @@ dat <- dat[-obgyn_rows, ]
 dat <- dat[, which(!(colnames(dat) %in% c('Abortion.Edit.Indicator','Birth.Weight')))]
 ```
 
+After filtering, there there are `r nrow(dat)` observations remaining.
+
 # Medicare Patient Data
 
-Due to the amount of computing power that it would take to analyze the whole dataset, we chose to subset the data by if any of a patient's payment types (primary, secondary, or tertiary) were Medicare.  870,472 patients had Medicare as their primary payment type, and 55,922 patients had Medicare as either their secondary or tertiary payment type for a total of 926,394
+Due to the amount of computing power that it would take to analyze the whole dataset, we chose to subset the data by if any of a patient's payment types (primary, secondary, or tertiary) were Medicare. 874,388 patients had Medicare as their primary payment type, and 55,333 additional patients had Medicare as either their secondary or tertiary payment type for a total of 929,721 patients.
 
 ```{r, medicare-subset}
 # Subset to only medicare patients
@@ -489,13 +543,14 @@ dat <- dat[medicare_rows, ]
 dat <- droplevels(dat)
 ```
 <!-- 
-# CHECK THESE?? 
-# just type1 medicare is 876258 rows
-# any is medicare is 932499
+# just type1 medicare is  874388 rows
+# any is medicare is 929721
  -->
 
 ## Figures
  <!-- using subset of data (Only Medicare) -->
+
+### Distribution of Length of Stay for Patients with Medicare
 
 The distribution of length of stay in the subset with only patients with Medicare resembles the overall distribution, but the largest frequency of length of stay in this subset is 3 days.
 
@@ -515,6 +570,8 @@ ggplot(dat, aes(x = Length.of.Stay)) +
   scale_y_continuous(labels = scales::comma)
 ```
 
+### Frequency of MDC Code in Medicare Patients
+
 The greatest number of medicare patients were admitted due to Diseases and Disorders of the Circulatory System (MDC Code 5) then  Diseases and Disorders of the Respiratory System (MDC Code 4) and Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8).
 
 ```{r, los-by-aprseverity-medicare, class.source = NULL, message = FALSE}
@@ -531,6 +588,9 @@ girafe_options(
     opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;'))
 
 ```
+
+
+### Frequency of Individuals with Medicare by Age Group
 
 As expected, the majority of patients with Medicare are 70 or older and also many in the 50 to 69 age group.
 
@@ -620,11 +680,13 @@ linearReg <- lm(Length.of.Stay ~ Age.Group
                 + Hospital.County 
               , data = train)
 summary(linearReg)
+
+R_squared = round(summary(linearReg)$r.squared, 4)
 ```
 
 Note that 7 coefficients are not defined due to singularities. The undefined factors are all from within the hospital county variable. We believe that this is due to the nested structure of the data. Hospital county can directly predict hospital service area because the hospital county variable is nested within the hospital service area. This is another reason that simple linear regression is not the best model for this data.
 
-The $R^2$ value for the simple linear regression on the training data is 0.2094. 
+The $R^2$ value for the simple linear regression on the training data is `r R_squared`. 
 
 ```{r, lin-reg-eval}
 
@@ -721,6 +783,41 @@ summary(Hierarchical_LOS, details=TRUE, max.print=99999999)
 eval_LOS_Hier <- evaluate_model(Hierarchical_LOS, test, 'Length.of.Stay')
 ```
 
+### Model Comparison
+```{r, model-comp, eval = FALSE}
+compare <- data.frame(matrix(, nrow = 3, ncol = 5))
+colnames(compare) <- c('', 'Linear Regression', 'Poisson', 'Zero-Truncated Poisson''Hierarchical Zero-Truncated Poisson')
+
+#Factor
+compare[1,1] <- 'Mean Absolute Error'
+compare[2,1] <- 'Mean Relative Error'
+compare[3,1] <- 'Root Mean Squared Error'
+
+#Linear Regression
+compare[1,2] <- eval_LOS_linear[1]
+compare[2,2] <- eval_LOS_linear[2]
+compare[3,2] <- eval_LOS_linear[3]
+  
+# Poisson
+compare[1,3] <- eval_LOS_Poi[1]
+compare[2,3] <- eval_LOS_Poi[2]
+compare[3,3] <- eval_LOS_Poi[3]
+
+# Zero-Truncated Poisson
+compare[1,4] <- eval_LOS_ZeroTruncPoi[1]
+compare[2,4] <- eval_LOS_ZeroTruncPoi[2]
+compare[3,4] <- eval_LOS_ZeroTruncPoi[3]
+
+# Hierarchical Zero Truncated Poisson
+compare[1,5] <- eval_LOS_Hier[1]
+compare[2,5] <- eval_LOS_Hier[2]
+compare[3,5] <- eval_LOS_Hier[3]
+
+
+# Print table
+report_table(compare)
+```
+
 ## Cost per Day
 
 ### Linear Regression
@@ -743,11 +840,13 @@ linearReg_Cost <- lm(Cost.per.Day ~ Age.Group
                 + Hospital.County
                 , data = train)
 summary(linearReg_Cost)
+
+R_squared2 = round(summary(linearReg_Cost)$r.squared, 4)
 ```
 
 7 coefficients were not estimated due to singularities similarly to the results from the length of stay analysis. 
 
-The output shows a $R^2$ of 0.2268 on the training data. 
+The output shows a $R^2$ of `r R_squared2` on the training data. 
 
 ```{r, cpd-lin-reg-eval, eval = FALSE}
 
@@ -783,28 +882,28 @@ eval_Cost_Hier <- evaluate_model(Hierarchical_cost, test, 'Cost.per.Day')
 
 ```
 
-## Model Comparison
+### Model Comparison
 ```{r, model-comp, eval = FALSE}
-compare <- data.frame(matrix(, nrow = 3, ncol = 3))
-colnames(compare) <- c('', 'Linear Regression', 'Hierarchical Linear Regression')
+compare2 <- data.frame(matrix(, nrow = 3, ncol = 3))
+colnames(compare2) <- c('', 'Linear Regression', 'Hierarchical Linear Regression')
 
 #Factor
-compare[1,1] <- 'Mean Absolute Error'
-compare[2,1] <- 'Mean Relative Error'
-compare[3,1] <- 'Root Mean Squared Error'
+compare2[1,1] <- 'Mean Absolute Error'
+compare2[2,1] <- 'Mean Relative Error'
+compare2[3,1] <- 'Root Mean Squared Error'
 
 #Linear Regression
-compare[1,2] <- eval_Cost_linear[1]
-compare[2,2] <- eval_Cost_linear[2]
-compare[3,2] <- eval_Cost_linear[3]
+compare2[1,2] <- eval_Cost_linear[1]
+compare2[2,2] <- eval_Cost_linear[2]
+compare2[3,2] <- eval_Cost_linear[3]
   
 # Hierarchical Linear Regression
-compare[1,3] <- eval_Cost_Hier[1]
-compare[2,3] <- eval_Cost_Hier[2]
-compare[3,3] <- eval_Cost_Hier[3]
+compare2[1,3] <- eval_Cost_Hier[1]
+compare2[2,3] <- eval_Cost_Hier[2]
+compare2[3,3] <- eval_Cost_Hier[3]
 
 # Print table
-report_table(compare)
+report_table(compare2)
 ```
 
 The evaluation metrics between the two methods are very similar indicating that there wasn't much to gain in performance by using the more computationally intensive method. We believe this could perhaps be the case because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. However, the reward you do get for running the hierarchical model is that it better represents the structure of the data, and it knows how to treat the nested variables. Since linear regression does not have the knowledge of the correlation between the nested variables, it ends up not being able to estimate certain coefficients and you get the warning "prediction from a rank-deficient fit may be misleading" when trying to predict using the linear regression model. Thus, it is better to take into account the hierarchical structure of the results to be able to trust the results of your predictions.
