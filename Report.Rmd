@@ -49,7 +49,8 @@ pre[class] {
 knitr::opts_chunk$set(
   cache = TRUE, 
   # cache = FALSE, 
-  cache.lazy = FALSE, 
+  # cache.lazy = FALSE, 
+  cache.lazy = TRUE, 
   error = TRUE, 
   warning = FALSE,
   class.source = 'fold-show',
@@ -61,6 +62,7 @@ knitr::opts_chunk$set(
 
 ```{r, load-libraries, message = FALSE}
 library(ggplot2)
+library(ggiraph)
 library(kableExtra)
 library(lme4)
 library(spaMM)
@@ -88,7 +90,7 @@ report_table <- function(x, w = NULL, h = '500px', ec = NULL){
 }
 ```
 
-## Data
+# Data Import
 
 ```{r, data-import}
 # Import the data
@@ -128,14 +130,14 @@ dat_hf <- dat_hf[!duplicated(dat_hf), ]
 colnames(dat_hf) <- c('Facility.Id', 'Facility.Type', 'Ownership.Type')
 
 # merge datasets by Facility Id
-dat <- droplevels(merge(dat, dat_hf, by = 'Facility.Id'))
+dat <- droplevels(merge(dat, dat_hf, by = 'Facility.Id', all.x = TRUE))
 ```
 
 ```{r, data-display-raw, class.source = NULL}
 report_table(head(dat, 50))
 ```
 
-## Clean Data
+## Data Cleaning
 ```{r, data-clean}
 # rename Zip.Code...3.digits
 colnames(dat)[which(colnames(dat) == 'Zip.Code...3.digits')] <- 'Zip'
@@ -184,20 +186,26 @@ summary(dat)
 report_table(head(dat, 50))
 ```
 
+
+# Preliminary Data Exploration
+
 ## MDC Codes
 
-The following codes are Major Diagnostic Categories (MDC) that generally correspond to a major organ system. The original 1-23 MDC codes are grouped by primary diagnosis. In 1986, they expanded the MDC codes to include MDC Codes 0 (Pre-MDC), 24 (Multiple Significant Trauma), and 25 (Human Immunodeficiency Virus or HIV). MDC codes 24 and 25 based on both the primary and secondary diagnosis unlike MDC codes 1-23. Patient diagnosis of MDC code 24 is based having on two or more significant traumas to different systems of the body. To receive an MDC code of 25, a patient must either have a primary diagnosis of HIV with a secondary diagnosis of an HIV infection complication or the primary diagnosis could be the HIV complication with the secondary diagnosis being  an HIV infection. Patients are assigned as Pre-MDC when the first step in the assigning the Diagnosis-Related Group (DRG) is based on procedure instead of primary diagnosis. Patients in the Pre-MDC group are mostly transplant patients (heart, liver, intestinal, bone marrow, etc.) and patients receiving tracheostomies. These are grouped separately as these are very resource intensive procedures and the procedures may be done for diagnoses across many different MDCs. [@3mhealthinformationsystemsAllPatientRefined2003] ## NOTE: ADD OTHER CITATION https://www.cms.gov/icd10m/version37-fullcode-cms/fullcode_cms/Design_and_development_of_the_Diagnosis_Related_Group_(DRGs).pdf
+The following codes are Major Diagnostic Categories (MDC) that generally correspond to a major organ system. The original 1-23 MDC codes are grouped by primary diagnosis. In 1986, they expanded the MDC codes to include MDC Codes 0 (Pre-MDC), 24 (Multiple Significant Trauma), and 25 (Human Immunodeficiency Virus or HIV), the latter two of which are based on both primary and secondary diagnosis unlike codes 1-23. Patient diagnosis of MDC code 24 is based having on two or more significant traumas to different systems of the body. To receive an MDC code of 25, a patient must either have a primary diagnosis of HIV with a secondary diagnosis of an HIV infection complication or the primary diagnosis could be the HIV complication with the secondary diagnosis being  an HIV infection. Patients are assigned as Pre-MDC when the first step in the assigning the Diagnosis-Related Group (DRG) is based on procedure instead of primary diagnosis. Patients in the Pre-MDC group are mostly transplant patients (heart, liver, intestinal, bone marrow, etc.) and patients receiving tracheostomies. These are grouped separately as these are very resource intensive procedures and the procedures may be done for diagnoses across many different MDCs [@centersformedicaremedicaidservicesICD10CMPCSMSDRG2020].
 
 ```{r, mdc-codes, class.source = NULL}
 mdc_codes <- data.frame('MDC Code' = as.character(0:25), 
-  'Description' = c('Pre-MDC or Ungroupable', 'Diseases and Disorders of the Nervous System', 'Diseases and Disorders of the Eye', 'Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders', 'Diseases and Disorders of the Respiratory System', 'Diseases and Disorders of the Circulatory System', 'Diseases and Disorders of the Digestive System', 'Diseases and Disorders of the Hepatobiliary System and Pancreas', 'Diseases and Disorders of the Musculoskeletal System and Connective Tissue', 'Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast', 'Endocrine, Nutritional and Metabolic Diseases and Disorders', 'Diseases and Disorders of the Kidney and Urinary Tract', 'Diseases and Disorders of the Male Reproductive System', 'Diseases and Disorders of the Female Reproductive System', 'Pregnancy, Childbirth and the Puerperium', 'Newborns and Other Neonates with Conditions Originating in the Perinatal Period', 'Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders', 'Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy', 'Infectious and Parasitic Diseases, Systemic or Unspecified Sites', 'Mental Diseases and Disorders', 'Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders', 'Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment', 'Burns', 'Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts', 'Multiple Significant Trauma', 'Human Immunodeficiency Virus (HIV) Infections'))
+  'Description' = c('Pre-MDC or Ungroupable', 'Diseases and Disorders of the Nervous System', 'Diseases and Disorders of the Eye', 'Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders', 'Diseases and Disorders of the Respiratory System', 'Diseases and Disorders of the Circulatory System', 'Diseases and Disorders of the Digestive System', 'Diseases and Disorders of the Hepatobiliary System and Pancreas', 'Diseases and Disorders of the Musculoskeletal System and Connective Tissue', 'Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast', 'Endocrine, Nutritional and Metabolic Diseases and Disorders', 'Diseases and Disorders of the Kidney and Urinary Tract', 'Diseases and Disorders of the Male Reproductive System', 'Diseases and Disorders of the Female Reproductive System', 'Pregnancy, Childbirth and the Puerperium', 'Newborns and Other Neonates with Conditions Originating in the Perinatal Period', 'Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders', 'Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy', 'Infectious and Parasitic Diseases, Systemic or Unspecified Sites', 'Mental Diseases and Disorders', 'Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders', 'Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment', 'Burns', 'Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts', 'Human Immunodeficiency Virus (HIV) Infections', 'Multiple Significant Trauma'))
+
+dat <- merge(dat, mdc_codes, by.x = 'APR.MDC.Code', by.y = 'MDC Code', all.x = TRUE)
+colnames(dat)[which(colnames(dat) == 'Description')] <- 'APR.MDC.Description'
 
 report_table(mdc_codes, 
   w = '650px', 
   ec = 'position: center; display: block; margin: auto;')
-
 ```
-# Preliminary Data Exploration
+
+
 
 ## Figures
 
@@ -236,15 +244,26 @@ ggplot(dat,
 The longest average length of stay among MDC groups was the 0 MDC group which corresponds to Pre-MDC or Ungroupable. As discussed earlier, the Pre-MDC group is primarily composed of transplant patients which explains the longer average time spent as an inpatient.
 
 ```{r, los-avg, class.source = NULL, class.source = NULL, message = FALSE}
-ggplot(dat, 
+# ggplot(dat, 
+#   aes(x = APR.MDC.Code, 
+#     y = Length.of.Stay,
+#     tooltip = APR.MDC.Description)) +
+#   stat_summary(fun = 'mean', 
+#     geom = 'bar', 
+#     fill = '#69b3a2') +
+#   ggtitle('Average Length of Stay by APR MDC Code') +
+#   xlab('APR MDC Code') +
+#   ylab('Average Length of Stay')
+girafe(ggplot(dat, 
   aes(x = APR.MDC.Code, 
-    y = Length.of.Stay)) +
-  stat_summary(fun = 'mean', 
-    geom = 'bar', 
+    y = Length.of.Stay,
+    tooltip = APR.MDC.Description)) +
+  geom_bar_interactive(stat = 'summary', 
+    fun = 'mean',
     fill = '#69b3a2') +
   ggtitle('Average Length of Stay by APR MDC Code') +
   xlab('APR MDC Code') +
-  ylab('Average Length of Stay')
+  ylab('Average Length of Stay'))
 ```
 
 As severity of illness increases, average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
@@ -368,7 +387,7 @@ ggplot(dat,
   ylab('Average Cost per day')
 ```
 
-## Filtering the Data
+## Data Filtering
 
 We chose to filter out observations that were related to pregnancy and newborn data as there are unique characteristics of their features. The birthweight feature, for example, was only reported for newborns. For all other observations, the birthweight was recorded as 0. With pregnancy related variables, some observations had a lot of missing data due to confidentiality issues in cases that may have been related to abortion (i.e. abortion procedure, miscarriage, ectopic pregnancy, etc.). Due to these unique characteritics of this data, we decided to filter out these observations.
 
@@ -469,13 +488,14 @@ ggplot(dat, aes(x = Length.of.Stay)) +
 The greatest number of medicare patients were admitted due to Diseases and Disorders of the Circulatory System (MDC Code 5) then  Diseases and Disorders of the Respiratory System (MDC Code 4) and Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8).
 
 ```{r, los-by-aprseverity-medicare, class.source = NULL, message = FALSE}
-ggplot(dat, aes(x = APR.MDC.Code)) + 
+girafe(ggplot(dat, aes(x = APR.MDC.Code)) + 
   geom_bar(fill = '#69b3a2', 
     color = '#e9ecef', 
     alpha = 0.9) +
   ggtitle('Frequency of APR MDC Code in Medicare Patients') +
   xlab('APR MDC Code') +
-  ylab('Frequency')
+  ylab('Frequency'))
+
 ```
 
 As expected, the majority of patients with Medicare are 70 or older and also many in the 50 to 69 age group.
