@@ -27,9 +27,9 @@ output:
 
 
 # Introduction
-Predicting patient outcomes early in the admission process is an important part of hospital management [@tierneyPredictingInpatientCosts1995,@tsaiLengthHospitalStay2016]. Estimating a patient's length of stay, for instance, assists in logistics such as allocation of hospital resources [@tsaiLengthHospitalStay2016]. The ability to predict patient-specific healthcare costs helps us gain understanding of the situations that lead to high healthcare costs and can inform future decisions in preventative care, which has been shown to be one of the best ways to decrease healthcare cost [@yangMachineLearningApproaches2018].  
+Predicting patient outcomes early in the admission process is an important part of hospital management [@tierneyPredictingInpatientCosts1995;@tsaiLengthHospitalStay2016]. Estimating a patient's length of stay, for instance, assists in logistics such as allocation of hospital resources [@tsaiLengthHospitalStay2016]. The ability to predict patient-specific healthcare costs helps us gain understanding of the situations that lead to high healthcare costs and can inform future decisions in preventative care, which has been shown to be one of the best ways to decrease healthcare cost [@yangMachineLearningApproaches2018].  
 
-For our final project we will be using the Statewide Planning and Research Cooperative System (SPARCS) Inpatient De-identified File dataset (originally provided the New York State Department of Health [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017]) as it appears on Kaggle to predict length of stay (LOS) in days, a metric used to assess hospital efficiency and quality of care [@oecdAverageLengthStay2011,@robinsonPredictionHospitalLength1966,@tsaiLengthHospitalStay2016], and patient cost per day. The full dataset contains nearly 2.35 million de-identified observations and 36 features about hospital inpatient discharge data for 2015.
+For our final project we will be using the Statewide Planning and Research Cooperative System (SPARCS) Inpatient De-identified File dataset (originally provided the New York State Department of Health [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017]) as it appears on Kaggle to predict length of stay (LOS) in days, a metric used to assess hospital efficiency and quality of care [@oecdAverageLengthStay2011;@robinsonPredictionHospitalLength1966;@tsaiLengthHospitalStay2016], and patient cost per day. The full dataset contains nearly 2.35 million de-identified observations and 36 features about hospital inpatient discharge data for 2015.
 
 
 # Set Up
@@ -60,6 +60,7 @@ knitr::opts_chunk$set(cache = TRUE,
 ```{r, load-libraries, message = FALSE}
 library(ggplot2)
 library(kableExtra)
+library(lme4)
 library(spaMM)
 spaMM.options('nb_cores' = future::availableCores() - 2)
 ```
@@ -148,7 +149,7 @@ summary(dat)
 
 ```
 
-```{r, data-display}
+```{r, data-display, class.source = NULL}
 # data_sub <- head(dat)
 
 # gt_first6 <- tab_header(gt(data_sub), 
@@ -184,7 +185,7 @@ mdc_codes <- data.frame('MDC Code' = as.character(0:25),
 
 
 report_table(mdc_codes, 
-  w = '800px', 
+  w = '600px', 
   ec = 'position: center; display: block; margin: auto;')
 # scroll_box(
 #   kable_paper(
@@ -453,7 +454,7 @@ test <- dat[-train_rows,]
 ## Evaluation Metrics
 
 We will be using the same evaluation metrics used in the literature for the assessment similar length of stay prediction models:
-$R^2$ [@tierneyPredictingInpatientCosts1995], mean absolute error (MAE) [@tsaiLengthHospitalStay2016,@tierneyPredictingInpatientCosts1995], mean relative error (MRE) [@tsaiLengthHospitalStay2016], and root mean squared error (RMSE) [@tsaiLengthHospitalStay2016].
+$R^2$ [@tierneyPredictingInpatientCosts1995], mean absolute error (MAE) [@tsaiLengthHospitalStay2016;@tierneyPredictingInpatientCosts1995], mean relative error (MRE) [@tsaiLengthHospitalStay2016], and root mean squared error (RMSE) [@tsaiLengthHospitalStay2016].
 
 ```{r, error-funtions}
 # Error functions
