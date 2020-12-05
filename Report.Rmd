@@ -49,8 +49,8 @@ pre[class] {
 knitr::opts_chunk$set(
   cache = TRUE, 
   # cache = FALSE, 
-  # cache.lazy = FALSE, 
-  cache.lazy = TRUE, 
+  cache.lazy = FALSE, 
+  # cache.lazy = TRUE, 
   error = TRUE, 
   warning = FALSE,
   class.source = 'fold-show',
@@ -139,6 +139,7 @@ dat$Total.Costs <- as.numeric(substring(dat$Total.Costs, 2))
 # Create cost per day variable
 dat$Cost.per.Day <- dat$Total.Costs / dat$Length.of.Stay
 
+head(dat[, c('APR.MDC.Code', 'APR.MDC.Description')])
 
 # Re-order factors
 dat$APR.MDC.Code <- factor(dat$APR.MDC.Code, levels = as.character(0:25))
@@ -244,17 +245,22 @@ The longest average length of stay among MDC groups was the 0 MDC group which co
 #   ggtitle('Average Length of Stay by APR MDC Code') +
 #   xlab('APR MDC Code') +
 #   ylab('Average Length of Stay')
+girafe_options(
+  girafe(code = 
+    print(ggplot(dat, 
+      aes(x = APR.MDC.Code, 
+        y = Length.of.Stay,
+        tooltip = APR.MDC.Description)) +
+      geom_bar_interactive(stat = 'summary', 
+        fun = 'mean',
+        fill = '#69b3a2') +
+      ggtitle('Average Length of Stay by APR MDC Code') +
+      xlab('APR MDC Code') +
+      ylab('Average Length of Stay'))),
+  opts_sizing(rescale = TRUE), 
+  opts_tooltip(opacity = .8, css = "background-color:gray;color:white;padding:2px;border-radius:2px;"),
+  opts_hover(css = "fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;"))
 
-girafe(code = print(ggplot(dat, 
-  aes(x = APR.MDC.Code, 
-    y = Length.of.Stay,
-    tooltip = APR.MDC.Description)) +
-  geom_bar_interactive(stat = 'summary', 
-    fun = 'mean',
-    fill = '#69b3a2') +
-  ggtitle('Average Length of Stay by APR MDC Code') +
-  xlab('APR MDC Code') +
-  ylab('Average Length of Stay')))
 ```
 
 As severity of illness increases, average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
@@ -352,15 +358,48 @@ ggplot(dat,
 Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8), Diseases and Disorders of the Female Reproductive System (MDC Code 13) had the highest average costs per day. 
 
 ```{r, cpd-avg, class.source = NULL, class.source = NULL, message = FALSE}
-ggplot(dat, 
-  aes(x = APR.MDC.Code, 
-    y = Cost.per.Day)) +
-  stat_summary(fun = 'mean', 
-    geom = 'bar', 
-    fill = '#69b3a2') +
-  ggtitle('Average Cost per day by APR MDC Code') +
-  xlab('APR MDC Code') +
-  ylab('Average Cost per day')
+# ggplot(dat, 
+#   aes(x = APR.MDC.Code, 
+#     y = Cost.per.Day)) +
+#   stat_summary(fun = 'mean', 
+#     geom = 'bar', 
+#     fill = '#69b3a2') +
+#   ggtitle('Average Cost per day by APR MDC Code') +
+#   xlab('APR MDC Code') +
+#   ylab('Average Cost per day')
+
+# girafe_options(
+#   girafe(code = 
+#     print(ggplot(dat, 
+#       aes(x = APR.MDC.Code, 
+#         y = Length.of.Stay,
+#         tooltip = APR.MDC.Description)) +
+#       geom_bar_interactive(stat = 'summary', 
+#         fun = 'mean',
+#         fill = '#69b3a2') +
+#       ggtitle('Average Length of Stay by APR MDC Code') +
+#       xlab('APR MDC Code') +
+#       ylab('Average Length of Stay'))),
+#   opts_sizing(rescale = TRUE), 
+#   opts_tooltip(opacity = .8, css = "background-color:gray;color:white;padding:2px;border-radius:2px;"),
+#   opts_hover(css = "fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;"))
+
+girafe_options(
+  girafe(code = print(
+    ggplot(dat, 
+      aes(x = APR.MDC.Code, 
+        y = Cost.per.Day,
+        tooltip = APR.MDC.Description)) +
+      geom_bar_interactive(stat = 'summary', 
+        fun = 'mean',
+        fill = '#69b3a2') +
+      ggtitle('Average Cost per day by APR MDC Code') +
+      xlab('APR MDC Code') +
+      ylab('Average Cost per day'))),
+  opts_sizing(rescale = TRUE), 
+  opts_tooltip(opacity = .9, css = "background-color:gray;color:white;padding:2px;border-radius:2px;"),
+  opts_hover(css = "fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;"))
+
 ```
 
 Municipality owned hospitals' cost per patient per day is at least $1000 more on average than the other four ownership types. 
@@ -423,14 +462,14 @@ aprdrg_obgyn_codes <- aprdrg[aprdrg$APR.DRG.Description %in% filter_obgyn(aprdrg
 ccs_obgyn_codes <- ccs[ccs$CCS.Diagnosis.Description %in% filter_obgyn(ccs$CCS.Diagnosis.Description), 'CCS.Diagnosis.Code']
 
 # filter dat to include only non-obgyn data, non-neonate data
-obgyn_rows <- with(dat, 
-    ((CCS.Diagnosis.Code %in% ccs_obgyn_codes | 
-      APR.DRG.Code %in% aprdrg_obgyn_codes | 
-      APR.MDC.Code == 14 | 
-      APR.MDC.Code == 15 | 
-      Abortion.Edit.Indicator == 'Y' | 
-      Type.of.Admission == 'Newborn') & 
-    Birth.Weight == 0))
+obgyn_rows <- with(dat, which(
+  CCS.Diagnosis.Code %in% ccs_obgyn_codes | 
+  APR.DRG.Code %in% aprdrg_obgyn_codes | 
+  APR.MDC.Code == 14 | 
+  APR.MDC.Code == 15 | 
+  Abortion.Edit.Indicator == 'Y' | 
+  Type.of.Admission == 'Newborn' | 
+  Birth.Weight > 0))
 dat <- dat[-obgyn_rows, ]
 
 # remove columns
@@ -479,13 +518,17 @@ ggplot(dat, aes(x = Length.of.Stay)) +
 The greatest number of medicare patients were admitted due to Diseases and Disorders of the Circulatory System (MDC Code 5) then  Diseases and Disorders of the Respiratory System (MDC Code 4) and Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8).
 
 ```{r, los-by-aprseverity-medicare, class.source = NULL, message = FALSE}
-girafe(ggplot(dat, aes(x = APR.MDC.Code)) + 
-  geom_bar(fill = '#69b3a2', 
-    color = '#e9ecef', 
-    alpha = 0.9) +
-  ggtitle('Frequency of APR MDC Code in Medicare Patients') +
-  xlab('APR MDC Code') +
-  ylab('Frequency'))
+girafe_options(
+  girafe(ggplot(dat, aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) + 
+    geom_bar_interactive(fill = '#69b3a2', 
+      color = '#e9ecef', 
+      alpha = 0.9) +
+    ggtitle('Frequency of APR MDC Code in Medicare Patients') +
+    xlab('APR MDC Code') +
+    ylab('Frequency')),
+    opts_sizing(rescale = FALSE), 
+    opts_tooltip(opacity = .9, css = "background-color:gray;color:white;padding:2px;border-radius:2px;"),
+    opts_hover(css = "fill:#1279BF;stroke:#1279BF;cursor:pointer;"))
 
 ```
 
