@@ -97,13 +97,39 @@ dat <- read.csv('input/Hospital_Inpatient_Discharges__SPARCS_De-Identified___201
   na.strings = c('NA', ''))
 ```
 
+
+<!-- dat_hf <- read.csv('input/Health_Facility_General_Information.csv',
+  colClasses =  c('factor', 'NULL', rep('factor', 2), rep('NULL', 32)),
+  skipNul = TRUE)
+colnames(dat_hf) <- c('Facility.Id', 'Facility.Type.Short', 'Facility.Type')
+
+unique(dat_hf[, c('Facility.Type.Short', 'Facility.Type')])
+
+
+bleh <- apply(dat_hf[, c('Facility.Type.Short', 'Facility.Type')], 1, paste0, collapse = '_')
+unique(bleh)
+unique(dat_hf[, c('Facility.Type.Short', 'Facility.Type')])
+ -->
+
+[@newyorkstatedepartmentofhealthHealthFacilityGeneral2014]
+
+```{r, data-import-healthfacility}
+# read in facility id and description columns from facility information dataset
+dat_hf <- read.csv('input/Health_Facility_General_Information.csv',
+  colClasses =  c('factor', rep('NULL', 2), 'factor', rep('NULL', 32)),
+  skipNul = TRUE)
+colnames(dat_hf) <- c('Facility.Id', 'Facility.Type')
+
+# merge datasets by Facility Id
+dat <- merge(dat, dat_hf, by = 'Facility.Id')
+```
+
 ```{r, data-display-raw, class.source = NULL}
 report_table(head(dat, 50))
 ```
 
 ## Clean Data
 ```{r, data-clean}
-
 # rename Zip.Code...3.digits
 colnames(dat)[which(colnames(dat) == 'Zip.Code...3.digits')] <- 'Zip'
 
@@ -139,40 +165,16 @@ dat <- dat[, which(!(colnames(dat) %in% c(
   'Operating.Provider.License.Number', 
   'Other.Provider.License.Number',
   'Patient.Disposition')))]
-
 ```
 
 
 ```{r, data-clean-old}
 # Look at makeup of dataset
 summary(dat)
-
 ```
 
 ```{r, data-display, class.source = NULL}
-# data_sub <- head(dat)
-
-# gt_first6 <- tab_header(gt(data_sub), 
-#       title = 'First 6 Rows of Hospital Inpatient Data')
-
-# gt_first6
-
 report_table(head(dat, 50))
-# scroll_box(
-#   kable_paper(
-#     kable_styling(
-#       kbl(head(dat, 50), 
-#         row.names = FALSE,
-#         align = 'c'), 
-#       full_width = T, 
-#       position = 'center',
-#       bootstrap_options = c('striped', 'hover'),
-#       fixed_thead = T), 
-#     full_width = T), 
-#   fixed_thead = T, 
-#   # width = '400px', 
-#   height = '500px')
-
 ```
 
 ## MDC Codes
@@ -183,25 +185,10 @@ The following codes are Major Diagnostic Categories (MDC) for that generally cor
 mdc_codes <- data.frame('MDC Code' = as.character(0:25), 
   'Description' = c('Pre-MDC or Ungroupable', 'Diseases and Disorders of the Nervous System', 'Diseases and Disorders of the Eye', 'Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders', 'Diseases and Disorders of the Respiratory System', 'Diseases and Disorders of the Circulatory System', 'Diseases and Disorders of the Digestive System', 'Diseases and Disorders of the Hepatobiliary System and Pancreas', 'Diseases and Disorders of the Musculoskeletal System and Connective Tissue', 'Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast', 'Endocrine, Nutritional and Metabolic Diseases and Disorders', 'Diseases and Disorders of the Kidney and Urinary Tract', 'Diseases and Disorders of the Male Reproductive System', 'Diseases and Disorders of the Female Reproductive System', 'Pregnancy, Childbirth and the Puerperium', 'Newborns and Other Neonates with Conditions Originating in the Perinatal Period', 'Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders', 'Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy', 'Infectious and Parasitic Diseases, Systemic or Unspecified Sites', 'Mental Diseases and Disorders', 'Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders', 'Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment', 'Burns', 'Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts', 'Human Immunodeficiency Virus (HIV) Infections', 'Multiple Significant Trauma'))
 
-
 report_table(mdc_codes, 
   w = '600px', 
   ec = 'position: center; display: block; margin: auto;')
-# scroll_box(
-#   kable_paper(
-#     kable_styling(
-#       kbl(mdc_codes, 
-#         row.names = FALSE), 
-#       full_width = T, 
-#       position = 'center',
-#       bootstrap_options = c('striped', 'hover'),
-#       fixed_thead = T), 
-#     full_width = T,
-#     position = 'center'), 
-#   fixed_thead = T, 
-#   width = '800px', 
-#   height = '400px',
-#   extra_css = 'position: center; display: block; margin: auto;')
+
 ```
 # Preliminary Data Exploration
 
@@ -352,18 +339,10 @@ filter_obgyn <- function(x){
       invert = TRUE))
 }
 
-# get APR.DRG.Code values to filter out
-# filter_obgyn(aprdrg$APR.DRG.Description)
-# aprdrg_obgyn_desc <- grep(obgyn_terms, aprdrg$APR.DRG.Description, ignore.case = TRUE, value = TRUE)
-# aprdrg_obgyn_desc <- grep(exclude_terms, aprdrg_obgyn_desc, ignore.case = TRUE, value = TRUE, invert = TRUE)
 aprdrg_obgyn_codes <- aprdrg[aprdrg$APR.DRG.Description %in% filter_obgyn(aprdrg$APR.DRG.Description), 'APR.DRG.Code']
 
 # get CCS.Diagnosis.Code values to filter out
 ccs_obgyn_codes <- ccs[ccs$CCS.Diagnosis.Description %in% filter_obgyn(ccs$CCS.Diagnosis.Description), 'CCS.Diagnosis.Code']
-
-# ccs_obgyn_desc <- grep(obgyn_terms, ccs$CCS.Diagnosis.Description, ignore.case = TRUE, value = TRUE)
-# ccs_obgyn_desc <- grep(exclude_terms, ccs_obgyn_desc, ignore.case = TRUE, value = TRUE, invert = TRUE)
-# ccs_obgyn_codes <- ccs[ccs$CCS.Diagnosis.Description %in% ccs_obgyn_desc, 'CCS.Diagnosis.Code']
 
 # filter dat to include only non-obgyn data, non-neonate data
 obgyn_rows <- with(dat, 
@@ -386,11 +365,16 @@ Due to the amount of computing power that it would take to analyze the whole dat
 
 ```{r, medicare-subset}
 # Subset to only medicare patients
-dat <- subset(dat, dat$Payment.Typology.1 == 'Medicare')
+medicare_rows <- with(dat, Vectorize(isTRUE)(Payment.Typology.1 == 'Medicare' | Payment.Typology.2 == 'Medicare' | Payment.Typology.3 == 'Medicare'))
+dat <- dat[medicare_rows, ]
 
 # drop unused levels
 dat <- droplevels(dat)
 ```
+<!-- 
+# just type1 medicare is 876258 rows
+# any is medicare is 932499
+ -->
 
 ## Figures
  <!-- using subset of data (Only Medicare) -->
@@ -463,11 +447,22 @@ MRE <- function(pred, actual){mean(abs(actual - pred) / abs(actual))}
 RMSE <- function(pred, actual){sqrt(mean((actual - pred)^2))}
 
 evaluate_model <- function(model, test, response){
+
   actual <- test[[response]]
   pred <- predict(model, test)
 
+  # Remove rows when response == 0; MRE = infinity for those observations
+  if(any(test[[response]] == 0)) {
+    test_mre <- test[!test[[response]] == 0, ]
+    pred_mre <- predict(model, test_mre)
+    actual_mre <- test_mre[[response]]
+  } else {
+    pred_mre <- pred
+    actual_mre <- actual
+  }
+
   return(c('Mean Absolute Error' = MAE(pred, actual), 
-    'Mean Relative Error' = MRE(pred, actual), 
+    'Mean Relative Error' = MRE(pred_mre, actual_mre), 
     'Root Mean Squared Error' = RMSE(pred, actual)))
 }
 ```
@@ -571,33 +566,6 @@ model1 <- glm(Length.of.Stay ~
 	family = Tpoisson(link = 'log'),
 	data = train)
 summary(model1)
-
-
-
-# model1_2 <- glm(Length.of.Stay ~ 
-# 		+ Age.Group
-# 		# + Zip
-# 		+ Gender
-# 		+ Race
-# 		+ Ethnicity
-# 		+ Type.of.Admission
-# 		# + CCS.Diagnosis.Code
-# 		# + CCS.Procedure.Code
-# 		# + APR.DRG.Code
-# 		+ APR.MDC.Code
-# 		+ APR.Severity.of.Illness.Code
-# 		+ APR.Risk.of.Mortality
-# 		+ Payment.Typology.1
-# 		# + Payment.Typology.2
-# 		# + Payment.Typology.3
-# 		+ Emergency.Department.Indicator
-# 		+ Health.Service.Area
-# 		+ Hospital.County 
-# 		+ Facility.Id,
-# 		,
-# 	family = Tpoisson(link = 'log'),
-# 	data = train)
-# summary(model1_2)
 ```
 
 
@@ -629,33 +597,6 @@ model2 <- HLfit(Length.of.Stay ~
 	family = Tpoisson(link = 'log'), 
 	data = train)
 summary(model2, details=TRUE, max.print=99999999)
-
-
-# # GLM with zero-truncated Poisson, nesting
-# model3 <- HLfit(Length.of.Stay ~ 
-# 		+ Age.Group
-# 		# + Zip
-# 		+ Gender
-# 		+ Race
-# 		+ Ethnicity
-# 		+ Type.of.Admission
-# 		# + CCS.Diagnosis.Code
-# 		# + CCS.Procedure.Code
-# 		# + APR.DRG.Code
-# 		+ APR.MDC.Code
-# 		+ APR.Severity.of.Illness.Code
-# 		+ APR.Risk.of.Mortality
-# 		+ Payment.Typology.1
-# 		# + Payment.Typology.2
-# 		# + Payment.Typology.3
-# 		+ Emergency.Department.Indicator
-# 		+ Health.Service.Area
-# 		+ (1 | Hospital.County / Health.Service.Area)
-# 		+ (1 | Facility.Id / Hospital.County / Health.Service.Area)
-# 		,
-# 	family = Tpoisson(link = 'log'), 
-# 	data = train)
-# summary(model3, details=TRUE, max.print=99999999)
 ```
 
 
@@ -687,8 +628,6 @@ summary(linearReg)
 The output shows a R-squared of 0.2547 on the train data. 
 
 ```{r, cpd-lin-reg-eval, eval = FALSE}
-#Evaluation Metrics
-#test <- test[!test$Health.Service.Area == ',]
 
 # Remove observations when cost per day are 0 because mean relative error will give infinity for those observations
 test <- test[!test$Cost.per.Day == 0, ]
