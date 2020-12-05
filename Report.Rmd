@@ -88,6 +88,15 @@ report_table <- function(x, w = NULL, h = '500px', ec = NULL){
     width = w,
     extra_css = ec)
 }
+
+report_plot <- function(x){
+  girafe_options(
+    girafe(code = print(x)),
+    opts_sizing(rescale = TRUE), 
+    opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
+    opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
+}
+
 ```
 
 # Data Import
@@ -245,22 +254,33 @@ The longest average length of stay among MDC groups was the 0 MDC group which co
 #   ggtitle('Average Length of Stay by APR MDC Code') +
 #   xlab('APR MDC Code') +
 #   ylab('Average Length of Stay')
-girafe_options(
-  girafe(code = 
-    print(ggplot(dat, 
-      aes(x = APR.MDC.Code, 
-        y = Length.of.Stay,
-        tooltip = APR.MDC.Description)) +
-      geom_bar_interactive(stat = 'summary', 
-        fun = 'mean',
-        fill = '#69b3a2') +
-      ggtitle('Average Length of Stay by APR MDC Code') +
-      xlab('APR MDC Code') +
-      ylab('Average Length of Stay'))),
-  opts_sizing(rescale = TRUE), 
-  opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
-  opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
+# girafe_options(
+#   girafe(code = 
+#     print(ggplot(dat, 
+#       aes(x = APR.MDC.Code, 
+#         y = Length.of.Stay,
+#         tooltip = APR.MDC.Description)) +
+#       geom_bar_interactive(stat = 'summary', 
+#         fun = 'mean',
+#         fill = '#69b3a2') +
+#       ggtitle('Average Length of Stay by APR MDC Code') +
+#       xlab('APR MDC Code') +
+#       ylab('Average Length of Stay'))),
+#   opts_sizing(rescale = TRUE), 
+#   opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
+#   opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
 
+report_plot(
+  ggplot(dat, 
+    aes(x = APR.MDC.Code, 
+      y = Length.of.Stay,
+      tooltip = APR.MDC.Description)) +
+    geom_bar_interactive(stat = 'summary', 
+      fun = 'mean',
+      fill = '#69b3a2') +
+    ggtitle('Average Length of Stay by APR MDC Code') +
+    xlab('APR MDC Code') +
+    ylab('Average Length of Stay'))
 ```
 
 As severity of illness increases, average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
@@ -384,22 +404,33 @@ Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases a
 #   opts_tooltip(opacity = .8, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
 #   opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
 
-girafe_options(
-  girafe(code = print(
-    ggplot(dat, 
-      aes(x = APR.MDC.Code, 
-        y = Cost.per.Day,
-        tooltip = APR.MDC.Description)) +
-      geom_bar_interactive(stat = 'summary', 
-        fun = 'mean',
-        fill = '#69b3a2') +
-      ggtitle('Average Cost per day by APR MDC Code') +
-      xlab('APR MDC Code') +
-      ylab('Average Cost per day'))),
-  opts_sizing(rescale = TRUE), 
-  opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
-  opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
+# girafe_options(
+#   girafe(code = print(
+#     ggplot(dat, 
+#       aes(x = APR.MDC.Code, 
+#         y = Cost.per.Day,
+#         tooltip = APR.MDC.Description)) +
+#       geom_bar_interactive(stat = 'summary', 
+#         fun = 'mean',
+#         fill = '#69b3a2') +
+#       ggtitle('Average Cost per day by APR MDC Code') +
+#       xlab('APR MDC Code') +
+#       ylab('Average Cost per day'))),
+#   opts_sizing(rescale = TRUE), 
+#   opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
+#   opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
 
+report_plot(
+  ggplot(dat, 
+    aes(x = APR.MDC.Code, 
+      y = Cost.per.Day,
+      tooltip = APR.MDC.Description)) +
+    geom_bar_interactive(stat = 'summary', 
+      fun = 'mean',
+      fill = '#69b3a2') +
+    ggtitle('Average Cost per day by APR MDC Code') +
+    xlab('APR MDC Code') +
+    ylab('Average Cost per day'))
 ```
 
 Municipality owned hospitals' cost per patient per day is at least $1000 more on average than the other four ownership types. 
@@ -482,7 +513,7 @@ Due to the amount of computing power that it would take to analyze the whole dat
 
 ```{r, medicare-subset}
 # Subset to only medicare patients
-medicare_rows <- with(dat, Vectorize(isTRUE)(Payment.Typology.1 == 'Medicare' | Payment.Typology.2 == 'Medicare' | Payment.Typology.3 == 'Medicare'))
+medicare_rows <- with(dat, which(Payment.Typology.1 == 'Medicare' | Payment.Typology.2 == 'Medicare' | Payment.Typology.3 == 'Medicare'))
 dat <- dat[medicare_rows, ]
 
 # drop unused levels
@@ -518,17 +549,14 @@ ggplot(dat, aes(x = Length.of.Stay)) +
 The greatest number of medicare patients were admitted due to Diseases and Disorders of the Circulatory System (MDC Code 5) then  Diseases and Disorders of the Respiratory System (MDC Code 4) and Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8).
 
 ```{r, los-by-aprseverity-medicare, class.source = NULL, message = FALSE}
-girafe_options(
-  girafe(ggplot(dat, aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) + 
-    geom_bar_interactive(fill = '#69b3a2', 
+report_plot(ggplot(dat, aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) + 
+    geom_bar_interactive(
+      fill = '#69b3a2', 
       color = '#e9ecef', 
       alpha = 0.9) +
     ggtitle('Frequency of APR MDC Code in Medicare Patients') +
     xlab('APR MDC Code') +
-    ylab('Frequency')),
-    opts_sizing(rescale = FALSE), 
-    opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
-    opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;'))
+    ylab('Frequency'))
 
 ```
 
@@ -536,7 +564,8 @@ As expected, the majority of patients with Medicare are 70 or older and also man
 
 ```{r, los-by-age-medicare, class.source = NULL, message = FALSE}
 ggplot(dat, aes(x = Age.Group)) + 
-  geom_bar(fill = '#69b3a2',
+  geom_bar_interactive(
+    fill = '#69b3a2',
     color = '#e9ecef', 
     alpha = 0.9) +
   ggtitle('Frequency of Individuals with Medicare by Age Group') +
