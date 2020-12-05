@@ -46,8 +46,10 @@ pre[class] {
 ```
 
 ```{r, setup, include = FALSE, echo = FALSE}
-knitr::opts_chunk$set(cache = TRUE, 
-  # cache.lazy = FALSE, 
+knitr::opts_chunk$set(
+  cache = TRUE, 
+  # cache = FALSE, 
+  cache.lazy = FALSE, 
   error = TRUE, 
   warning = FALSE,
   class.source = 'fold-show',
@@ -116,12 +118,17 @@ unique(dat_hf[, c('Facility.Type.Short', 'Facility.Type')])
 ```{r, data-import-healthfacility}
 # read in facility id and description columns from facility information dataset
 dat_hf <- read.csv('input/Health_Facility_General_Information.csv',
-  colClasses =  c('factor', rep('NULL', 2), 'factor', rep('NULL', 32)),
+  colClasses =  c('factor', rep('NULL', 2), 'factor', rep('NULL', 28), 'factor', rep('NULL', 3)),
   skipNul = TRUE)
-colnames(dat_hf) <- c('Facility.Id', 'Facility.Type')
+
+# remove duplicate rows
+dat_hf <- dat_hf[!duplicated(dat_hf), ]
+
+# rename columns
+colnames(dat_hf) <- c('Facility.Id', 'Facility.Type', 'Ownership.Type')
 
 # merge datasets by Facility Id
-dat <- merge(dat, dat_hf, by = 'Facility.Id')
+dat <- droplevels(merge(dat, dat_hf, by = 'Facility.Id'))
 ```
 
 ```{r, data-display-raw, class.source = NULL}
@@ -151,8 +158,8 @@ dat$APR.Severity.of.Illness.Description <- factor(
   dat$APR.Severity.of.Illness.Description, 
   labels = c('Minor', 'Moderate', 'Major', 'Extreme'))
 
-dat$Type.of.Admission <- factor(dat$Type.of.Admission,
-  labels = c('Elective', 'Trauma', 'Emergency', 'Urgent', 'Newborn', 'Not Available'))
+# dat$Type.of.Admission <- factor(dat$Type.of.Admission,
+#   labels = c('Elective', 'Trauma', 'Emergency', 'Urgent', 'Newborn', 'Not Available'))
 
 # Remove columns:
 ## discharge year is 2015 for all rows
@@ -179,14 +186,14 @@ report_table(head(dat, 50))
 
 ## MDC Codes
 
-The following codes are Major Diagnostic Categories (MDC) for that generally correspond to a major organ system. [@3mhealthinformationsystemsAllPatientRefined]
+The following codes are Major Diagnostic Categories (MDC) for that generally correspond to a major organ system. [@3mhealthinformationsystemsAllPatientRefined2003]
 
 ```{r, mdc-codes, class.source = NULL}
 mdc_codes <- data.frame('MDC Code' = as.character(0:25), 
   'Description' = c('Pre-MDC or Ungroupable', 'Diseases and Disorders of the Nervous System', 'Diseases and Disorders of the Eye', 'Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders', 'Diseases and Disorders of the Respiratory System', 'Diseases and Disorders of the Circulatory System', 'Diseases and Disorders of the Digestive System', 'Diseases and Disorders of the Hepatobiliary System and Pancreas', 'Diseases and Disorders of the Musculoskeletal System and Connective Tissue', 'Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast', 'Endocrine, Nutritional and Metabolic Diseases and Disorders', 'Diseases and Disorders of the Kidney and Urinary Tract', 'Diseases and Disorders of the Male Reproductive System', 'Diseases and Disorders of the Female Reproductive System', 'Pregnancy, Childbirth and the Puerperium', 'Newborns and Other Neonates with Conditions Originating in the Perinatal Period', 'Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders', 'Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy', 'Infectious and Parasitic Diseases, Systemic or Unspecified Sites', 'Mental Diseases and Disorders', 'Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders', 'Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment', 'Burns', 'Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts', 'Human Immunodeficiency Virus (HIV) Infections', 'Multiple Significant Trauma'))
 
 report_table(mdc_codes, 
-  w = '600px', 
+  w = '650px', 
   ec = 'position: center; display: block; margin: auto;')
 
 ```
@@ -257,6 +264,34 @@ ggplot(subset(dat, !is.na(APR.Severity.of.Illness.Description)),
 ```
 
 Cost per day is highest in patients with elective procedures and cases of trauma.
+
+
+```{r, los-by-ownership, class.source = NULL, message = FALSE}
+ggplot(subset(dat, !is.na(Ownership.Type)), 
+  aes(
+    x = reorder(Ownership.Type, Length.of.Stay), 
+    y = Length.of.Stay, 
+    fill = Ownership.Type)) + 
+  stat_summary(fun = 'mean', 
+    geom = 'bar') +
+  theme(legend.position = 'none') +
+  ggtitle('Length of Stay by Ownership Type') +
+  xlab('Ownership Type') +
+  ylab('Average Length of Stay')
+
+ggplot(dat, 
+  aes(x = Ownership.Type, 
+    y = Length.of.Stay, 
+    fill = Ownership.Type)) + 
+  geom_boxplot() +
+  theme(legend.position = 'none') +
+  ggtitle('Length of Stay by Ownership Type') +
+  xlab('Ownership Type') +
+  ylab('Length of Stay') +
+  scale_y_continuous(breaks = c(1, 10, 20), 
+    limits = c(0, 20))
+```
+
 
 ```{r, cpd-by-typeadmit, class.source = NULL, class.source = NULL, message = FALSE}
 ggplot(dat, 
@@ -339,6 +374,7 @@ filter_obgyn <- function(x){
       invert = TRUE))
 }
 
+# get APR.DRG.Code values to filter out
 aprdrg_obgyn_codes <- aprdrg[aprdrg$APR.DRG.Description %in% filter_obgyn(aprdrg$APR.DRG.Description), 'APR.DRG.Code']
 
 # get CCS.Diagnosis.Code values to filter out
