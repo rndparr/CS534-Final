@@ -29,7 +29,7 @@ output:
 # Introduction
 Predicting patient outcomes early in the admission process is an important part of hospital management [@tierneyPredictingInpatientCosts1995;@tsaiLengthHospitalStay2016]. Estimating a patient's length of stay, for instance, assists in logistics such as allocation of hospital resources [@tsaiLengthHospitalStay2016]. The ability to predict patient-specific healthcare costs helps us gain understanding of the situations that lead to high healthcare costs and can inform future decisions in preventative care, which has been shown to be one of the best ways to decrease healthcare cost [@yangMachineLearningApproaches2018].  
 
-For our final project we will be using the Statewide Planning and Research Cooperative System (SPARCS) Inpatient De-identified File dataset (originally provided the New York State Department of Health [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017]) as it appears on Kaggle to predict length of stay (LOS) in days, a metric used to assess hospital efficiency and quality of care [@oecdAverageLengthStay2011;@robinsonPredictionHospitalLength1966;@tsaiLengthHospitalStay2016], and patient cost per day. The full dataset contains nearly 2.35 million de-identified observations and 36 features about hospital inpatient discharge data for 2015.
+For our final project we will be using the Statewide Planning and Research Cooperative System (SPARCS) Inpatient De-identified File dataset (originally provided the New York State Department of Health [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017]) as it appears on Kaggle to predict length of stay (LOS) in days, a metric used to assess hospital efficiency and quality of care [@oecdAverageLengthStay2011;@robinsonPredictionHospitalLength1966;@tsaiLengthHospitalStay2016], and patient cost per day. The full dataset contains nearly 2.35 million de-identified observations and 37 features about hospital inpatient discharge data for 2015.
 
 
 # Set Up
@@ -113,7 +113,7 @@ unique(bleh)
 unique(dat_hf[, c('Facility.Type.Short', 'Facility.Type')])
  -->
 
-[@newyorkstatedepartmentofhealthHealthFacilityGeneral2014]
+We will also be incorporating two more variables into our analysis from a second dataset called Health Facility General Information which is also provided by the New York State Department of Health. We can match the Facility IDs between the two datasets and be able to use two additional variables in the analysis, Facility Type and Ownership Type [@newyorkstatedepartmentofhealthHealthFacilityGeneral2014].
 
 ```{r, data-import-healthfacility}
 # read in facility id and description columns from facility information dataset
@@ -186,11 +186,11 @@ report_table(head(dat, 50))
 
 ## MDC Codes
 
-The following codes are Major Diagnostic Categories (MDC) for that generally correspond to a major organ system. [@3mhealthinformationsystemsAllPatientRefined2003]
+The following codes are Major Diagnostic Categories (MDC) that generally correspond to a major organ system. The original 1-23 MDC codes are grouped by primary diagnosis. In 1986, they expanded the MDC codes to include MDC Codes 0 (Pre-MDC), 24 (Multiple Significant Trauma), and 25 (Human Immunodeficiency Virus or HIV). MDC codes 24 and 25 based on both the primary and secondary diagnosis unlike MDC codes 1-23. Patient diagnosis of MDC code 24 is based having on two or more significant traumas to different systems of the body. To receive an MDC code of 25, a patient must either have a primary diagnosis of HIV with a secondary diagnosis of an HIV infection complication or the primary diagnosis could be the HIV complication with the secondary diagnosis being  an HIV infection. Patients are assigned as Pre-MDC when the first step in the assigning the Diagnosis-Related Group (DRG) is based on procedure instead of primary diagnosis. Patients in the Pre-MDC group are mostly transplant patients (heart, liver, intestinal, bone marrow, etc.) and patients receiving tracheostomies. These are grouped separately as these are very resource intensive procedures and the procedures may be done for diagnoses across many different MDCs. [@3mhealthinformationsystemsAllPatientRefined2003] ## NOTE: ADD OTHER CITATION https://www.cms.gov/icd10m/version37-fullcode-cms/fullcode_cms/Design_and_development_of_the_Diagnosis_Related_Group_(DRGs).pdf
 
 ```{r, mdc-codes, class.source = NULL}
 mdc_codes <- data.frame('MDC Code' = as.character(0:25), 
-  'Description' = c('Pre-MDC or Ungroupable', 'Diseases and Disorders of the Nervous System', 'Diseases and Disorders of the Eye', 'Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders', 'Diseases and Disorders of the Respiratory System', 'Diseases and Disorders of the Circulatory System', 'Diseases and Disorders of the Digestive System', 'Diseases and Disorders of the Hepatobiliary System and Pancreas', 'Diseases and Disorders of the Musculoskeletal System and Connective Tissue', 'Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast', 'Endocrine, Nutritional and Metabolic Diseases and Disorders', 'Diseases and Disorders of the Kidney and Urinary Tract', 'Diseases and Disorders of the Male Reproductive System', 'Diseases and Disorders of the Female Reproductive System', 'Pregnancy, Childbirth and the Puerperium', 'Newborns and Other Neonates with Conditions Originating in the Perinatal Period', 'Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders', 'Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy', 'Infectious and Parasitic Diseases, Systemic or Unspecified Sites', 'Mental Diseases and Disorders', 'Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders', 'Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment', 'Burns', 'Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts', 'Human Immunodeficiency Virus (HIV) Infections', 'Multiple Significant Trauma'))
+  'Description' = c('Pre-MDC or Ungroupable', 'Diseases and Disorders of the Nervous System', 'Diseases and Disorders of the Eye', 'Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders', 'Diseases and Disorders of the Respiratory System', 'Diseases and Disorders of the Circulatory System', 'Diseases and Disorders of the Digestive System', 'Diseases and Disorders of the Hepatobiliary System and Pancreas', 'Diseases and Disorders of the Musculoskeletal System and Connective Tissue', 'Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast', 'Endocrine, Nutritional and Metabolic Diseases and Disorders', 'Diseases and Disorders of the Kidney and Urinary Tract', 'Diseases and Disorders of the Male Reproductive System', 'Diseases and Disorders of the Female Reproductive System', 'Pregnancy, Childbirth and the Puerperium', 'Newborns and Other Neonates with Conditions Originating in the Perinatal Period', 'Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders', 'Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy', 'Infectious and Parasitic Diseases, Systemic or Unspecified Sites', 'Mental Diseases and Disorders', 'Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders', 'Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment', 'Burns', 'Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts', 'Multiple Significant Trauma', 'Human Immunodeficiency Virus (HIV) Infections'))
 
 report_table(mdc_codes, 
   w = '650px', 
@@ -217,7 +217,7 @@ ggplot(dat, aes(x = Length.of.Stay)) +
   scale_y_continuous(labels = scales::comma)
 ```
 
-Mean length of stay increases as age group increases. The interquartile range of length of stay also increases as age group increases.
+Median length of stay increases as age group increases. The interquartile range of length of stay also increases as age group increases.
 
 ```{r, los-by-age, class.source = NULL, message = FALSE}
 ggplot(dat, 
@@ -233,7 +233,7 @@ ggplot(dat,
     limits = c(0, 20))
 ```
 
-The longest average length of stay among MDC groups was the 0 MDC group which corresponds to Pre-MDC or Ungroupable
+The longest average length of stay among MDC groups was the 0 MDC group which corresponds to Pre-MDC or Ungroupable. As discussed earlier, the Pre-MDC group is primarily composed of transplant patients which explains the longer average time spent as an inpatient.
 
 ```{r, los-avg, class.source = NULL, class.source = NULL, message = FALSE}
 ggplot(dat, 
@@ -247,7 +247,7 @@ ggplot(dat,
   ylab('Average Length of Stay')
 ```
 
-As severity of illness increases average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
+As severity of illness increases, average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
 
 ```{r, los-by-aprseverity, class.source = NULL, message = FALSE}
 ggplot(subset(dat, !is.na(APR.Severity.of.Illness.Description)), 
@@ -263,8 +263,10 @@ ggplot(subset(dat, !is.na(APR.Severity.of.Illness.Description)),
   ylab('Average Length of Stay')
 ```
 
-Cost per day is highest in patients with elective procedures and cases of trauma.
 
+Ownership type was one of the variables merged from the second dataset which gave additional information about facility type. There is a clear distinction in mean length of stay between the different ownership types with the longest average length of stay being for a Public Benefit Corporation (PBC). A PBC is a type of for-profit entity. Municipality owned hospitals, which are run by the local government, have the second largest average length of stay 
+
+Similarly, the boxplot shows a higher median length of stay for PBC and a larger spread.
 
 ```{r, los-by-ownership, class.source = NULL, message = FALSE}
 ggplot(subset(dat, !is.na(Ownership.Type)), 
@@ -292,6 +294,22 @@ ggplot(dat,
     limits = c(0, 20))
 ```
 
+The average length of stay is greater in hospitals than in Critical Access Hospitals. Critical Access Hospitals are rural hospitals overseen by the Centers for Medicare and Medicaid Services (CMS) that meet the following criteria: 25 or fewer acute care inpatient beds, at least 35 miles from the nearest hospital, keep the average length of stay for the year at 96 hours or less for acute care patients, and have emergency care services available 24/7. By keeping their status as a Critical Access Hospital, they receive certain benefits from CMS which would Critical Access Hopsitals to keep the length of stay lower in order to keep their status. https://www.ruralhealthinfo.org/topics/critical-access-hospitals ## Cite.
+
+```{r, los-facility-type, class.source = NULL, class.source = NULL, message = FALSE}
+ggplot(dat, 
+  aes(x = Facility.Type, 
+    y = Length.of.Stay, 
+    fill = Facility.Type)) +
+  stat_summary(fun = 'mean', 
+    geom = 'bar') +
+  theme(legend.position = 'none') +
+  ggtitle('Average Length of stay by Facility Type') +
+  xlab('Facility Type') +
+  ylab('Average Length of Stay')
+```
+
+Cost per day is highest in patients with elective procedures and cases of trauma.
 
 ```{r, cpd-by-typeadmit, class.source = NULL, class.source = NULL, message = FALSE}
 ggplot(dat, 
@@ -323,7 +341,6 @@ ggplot(dat,
 
 Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8), Diseases and Disorders of the Female Reproductive System (MDC Code 13) had the highest average costs per day. 
 
-
 ```{r, cpd-avg, class.source = NULL, class.source = NULL, message = FALSE}
 ggplot(dat, 
   aes(x = APR.MDC.Code, 
@@ -333,6 +350,21 @@ ggplot(dat,
     fill = '#69b3a2') +
   ggtitle('Average Cost per day by APR MDC Code') +
   xlab('APR MDC Code') +
+  ylab('Average Cost per day')
+```
+
+Municipality owned hospitals' cost per patient per day is at least $1000 more on average than the other four ownership types. 
+
+```{r, cpd-owner-type, class.source = NULL, class.source = NULL, message = FALSE}
+ggplot(dat, 
+  aes(x = Ownership.Type, 
+    y = Cost.per.Day, 
+    fill = Ownership.Type)) +
+  stat_summary(fun = 'mean', 
+    geom = 'bar') +
+  theme(legend.position = 'none') +
+  ggtitle('Average Cost per day by Ownership Type') +
+  xlab('Ownership Type') +
   ylab('Average Cost per day')
 ```
 
@@ -397,7 +429,7 @@ dat <- dat[, which(!(colnames(dat) %in% c('Abortion.Edit.Indicator','Birth.Weigh
 
 # Medicare Patient Data
 
-Due to the amount of computing power that it would take to analyze the whole dataset, we chose to subset the data by the Primary Payment type of Medicare. 
+Due to the amount of computing power that it would take to analyze the whole dataset, we chose to subset the data by if any of a patient's payment types (primary, secondary, or tertiary) were Medicare.  870,472 patients had Medicare as their primary payment type, and 55,922 patients had Medicare as either their secondary or tertiary payment type for a total of 926,394
 
 ```{r, medicare-subset}
 # Subset to only medicare patients
@@ -408,6 +440,7 @@ dat <- dat[medicare_rows, ]
 dat <- droplevels(dat)
 ```
 <!-- 
+# CHECK THESE?? 
 # just type1 medicare is 876258 rows
 # any is medicare is 932499
  -->
@@ -476,10 +509,17 @@ test <- dat[-train_rows,]
 We will be using the same evaluation metrics used in the literature for the assessment similar length of stay prediction models:
 $R^2$ [@tierneyPredictingInpatientCosts1995], mean absolute error (MAE) [@tsaiLengthHospitalStay2016;@tierneyPredictingInpatientCosts1995], mean relative error (MRE) [@tsaiLengthHospitalStay2016], and root mean squared error (RMSE) [@tsaiLengthHospitalStay2016].
 
+$$ MAE = \frac {\sum_{i = 1}^{n} |\hat y_i - y_i|}{n} $$
+
+$$ MRE = \frac {\sum_{i = 1}^{n} (|\hat y_i - y_i|/y_i)}{n}$$
+
+$$ RMSE = \sqrt\frac {\sum_{i = 1}^{n} (\hat y_i - y_i)^2}{n}$$
+where $\hat y_i$ is the predicted value for length of stay or cost per dayand $y_i$ is the actual value for length of stay or cost per day. 
+
 ```{r, error-funtions}
 # Error functions
 MAE <- function(pred, actual){mean(abs(actual - pred))}
-MRE <- function(pred, actual){mean(abs(actual - pred) / abs(actual))}
+MRE <- function(pred, actual){mean(abs(actual - pred) / actual)}
 RMSE <- function(pred, actual){sqrt(mean((actual - pred)^2))}
 
 evaluate_model <- function(model, test, response){
@@ -497,9 +537,9 @@ evaluate_model <- function(model, test, response){
     actual_mre <- actual
   }
 
-  return(c('Mean Absolute Error' = MAE(pred, actual), 
-    'Mean Relative Error' = MRE(pred_mre, actual_mre), 
-    'Root Mean Squared Error' = RMSE(pred, actual)))
+  return(c('Mean Absolute Error' = round(MAE(pred, actual), digits = 2), 
+    'Mean Relative Error' = round(MRE(pred_mre, actual_mre), digits = 2), 
+    'Root Mean Squared Error' = round(RMSE(pred, actual), digits = 2)))
 }
 ```
 
@@ -508,6 +548,7 @@ evaluate_model <- function(model, test, response){
 
 ### Linear Regression
 We wanted to focus our efforts in predicting length of stay through regression methods and not classification methods because knowing the exact number of days a patient would need to stay would be overall more useful than knowing a range of days a patient may stay. We start with a simple linear regression as our base model although we acknowledge that fundamentally, this is not the proper model that we want to use to model length of stay. 
+
 
 ```{r, lin-reg}
 linearReg <- lm(Length.of.Stay ~ Age.Group
@@ -518,58 +559,54 @@ linearReg <- lm(Length.of.Stay ~ Age.Group
                 + APR.MDC.Code
                 + APR.Severity.of.Illness.Code
                 + APR.Risk.of.Mortality
-                # + Payment.Typology.1
+                + Ownership.Type
+                + Facility.Type
                 + Emergency.Department.Indicator
                 + Health.Service.Area
                 + Hospital.County 
-          #      + Facility.Id
               , data = train)
 summary(linearReg)
 ```
 
+Note that 7 coefficients are not defined due to singularities. The undefined factors are all from within the hospital county variable. We believe that this is due to the nested structure of the data. Hospital county can directly predict hospital service area because the hospital county variable is nested within the hospital service area. This is another reason that simple linear regression is not the best model for this data.
+
+The $R^2$ value for the simple linear regression on the training data is 0.2094. 
+
 ```{r, lin-reg-eval}
-linearReg_preds <- predict(linearReg, test)
 
-# Evaluate
-linearReg_MAE <- MAE(linearReg_preds, test$Length.of.Stay)
-
-linearReg_MRE <- MRE(linearReg_preds, test$Length.of.Stay)
-
-linearReg_RMSE <- RMSE(linearReg_preds, test$Length.of.Stay)
-
+# Evaluate linear regression model
+eval_LOS_linear <- evaluate_model(linearReg, test, "Length.of.Stay")
 ```
 
 
 ### Poisson Model
-When you look at thet possible values of length of stay, you see that length of stay can only be integer values greater than 1. Linear regression, on the other hand, will give you continuous values from -infinty to infinity. Therefore, our next step was to model length of stay as a Poisson regression which models count data. This still isn't quite the right model as a normal Poisson can take on values of 0. Since this is inpatient data, there will never be a patient who has a length of stay as 0.
+When you look at thet possible values of length of stay, you see that length of stay can only be integer values greater than 1. Linear regression, on the other hand, will give you continuous values from -infinty to infinity. Therefore, our next step was to model length of stay as a Poisson regression which models count data. This still isn't quite the right model as a normal Poisson can take on values of 0. Since this is inpatient data, there will never be a patient who has a length of stay of 0.
 
 ```{r, pois-reg}
-Poi <- glm(Length.of.Stay ~ Age.Group
-                        + Gender
-                        + Race
-                        + Ethnicity
-                        + Type.of.Admission
-                        + APR.MDC.Code
-                        + APR.Severity.of.Illness.Code
-                        + APR.Risk.of.Mortality
-                        + Payment.Typology.1
-                        + Emergency.Department.Indicator
-                        + Health.Service.Area
-                        + Hospital.County,
-                   #     + Facility.Id , 
-                        family = Poisson(link = 'log'),
-                        data = train)
+Poi <- glm(Length.of.Stay ~  Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
+                + Emergency.Department.Indicator
+                + Health.Service.Area
+                + Hospital.County, 
+                family = Poisson(link = 'log'),
+                data = train)
 summary(Poi)
 ```
 
+Note, the same hospital county coefficients were not estimated in using the Poisson model either. 
+
 ```{r, pois-reg-eval}
-Poi_preds <- predict(Poi, test)
 
-# Evaluate
-Poi_MAE <- MAE(Poi_preds, test$Length.of.Stay)
-Poi_MRE <- MRE(Poi_preds, test$Length.of.Stay)
-Poi_RMSE <- RMSE(Poi_preds, test$Length.of.Stay)
-
+# Evaluate Poisson model
+eval_LOS_Poi <- evaluate_model(Poi, test, "Length.of.Stay")
 ```
 
 
@@ -578,72 +615,7 @@ Next we look at the Zero-Truncated Poisson model. This is a modification of the 
 
 ```{r, ztpois-reg, eval = FALSE}
 # GLM with zero-truncated Poisson
-model1 <- glm(Length.of.Stay ~ 
-		+ Age.Group
-		# + Zip
-		+ Gender
-		+ Race
-		+ Ethnicity
-		+ Type.of.Admission
-		# + CCS.Diagnosis.Code
-		# + CCS.Procedure.Code
-		# + APR.DRG.Code
-		+ APR.MDC.Code
-		+ APR.Severity.of.Illness.Code
-		+ APR.Risk.of.Mortality
-		# + Payment.Typology.1
-		# + Payment.Typology.2
-		# + Payment.Typology.3
-		+ Emergency.Department.Indicator
-		+ Health.Service.Area
-		+ Hospital.County 
-		# + Facility.Id,
-		,
-	family = Tpoisson(link = 'log'),
-	data = train)
-summary(model1)
-```
-
-
-### Hierarchical Zero-Truncated Poisson Model
-Lastly, we fit a hierarchical zero-truncted poisson model. If you look at the variables for Health Serivce Area, County, and Facility, you can see that these are nested varaibles. For example, specific facility ids will only occur in specific counties which only occur in specific health areas. By modeling length of stay as a multi-level model, we can take into account the area-level, county-level, and facility-level effects on length of stay by accounting for unexplained variation in hospital service areas, hospital counties, and facilities. 
-
-```{r, hztpois-reg, eval = FALSE}
-# GLM with zero-truncated Poisson, nesting
-model2 <- HLfit(Length.of.Stay ~ 
-		+ Age.Group
-		# + Zip
-		+ Gender
-		+ Race
-		+ Ethnicity
-		+ Type.of.Admission
-		# + CCS.Diagnosis.Code
-		# + CCS.Procedure.Code
-		# + APR.DRG.Code
-		+ APR.MDC.Code
-		+ APR.Severity.of.Illness.Code
-		+ APR.Risk.of.Mortality
-		+ Payment.Typology.1
-		# + Payment.Typology.2
-		# + Payment.Typology.3
-		+ Emergency.Department.Indicator
-		+ Health.Service.Area
-		+ (1 | Hospital.County / Health.Service.Area)
-		,
-	family = Tpoisson(link = 'log'), 
-	data = train)
-summary(model2, details=TRUE, max.print=99999999)
-```
-
-
-## Cost per Day
-
-### Linear Regression
-In predicting cost per day, we focused on comparing simple linear regression results to the results for a hierarchical linear model accounting for the variance in serivce area, county, and facility. We hoped and predicted that we would see an improvement in performance by using a more complicated and computationally heavy approach using the hierarchical structure. 
-
-```{r, cpd-lin-reg, eval = FALSE}
-# Linear regression for cost per day
-linearReg <- lm(Cost.per.Day ~ Age.Group
+ZeroTruncated_Poi <- glm(Length.of.Stay ~ Age.Group
                 + Gender
                 + Race
                 + Ethnicity
@@ -651,67 +623,115 @@ linearReg <- lm(Cost.per.Day ~ Age.Group
                 + APR.MDC.Code
                 + APR.Severity.of.Illness.Code
                 + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
                 + Emergency.Department.Indicator
                 + Health.Service.Area
-                + Hospital.County 
-                + Facility.Id
-                , data = train)
-summary(linearReg)
+                + Hospital.County, 
+	              family = Tpoisson(link = 'log'),
+	              data = train)
+summary(ZeroTruncated_Poi)
 ```
 
-63 coefficients were not estimated due to singularities. These all occured with hospital counties and facility ids. This is likely due to the nested strucutre of the data because each facility id only occurs within a single hospital county which only occurs within a single health service area. 
+```{r, ztpois-eval}
+# Evaluate Zero-Truncated Poisson model
+eval_LOS_ZeroTruncPoi <- evaluate_model(ZeroTruncated_Poi, test, "Length.of.Stay")
+```
 
-The output shows a R-squared of 0.2547 on the train data. 
+
+### Hierarchical Zero-Truncated Poisson Model
+Lastly, we fit a hierarchical zero-truncted poisson model. If you look at the variables for Health Serivce Area and Hospital County, you can see that these are nested varaibles. For example, specific hospital counties will only occur in specific health areas. By modeling length of stay as a multi-level model, we can take into account the area-level and county-level effects on length of stay by accounting for unexplained variation in hospital service areas and hospital counties. 
+
+```{r, hztpois-reg, eval = FALSE}
+# GLM with zero-truncated Poisson, nesting
+Hierarchical_LOS <- HLfit(Length.of.Stay ~ Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
+                + Emergency.Department.Indicator
+		       #     + Health.Service.Area
+		            + (1 | Hospital.County / Health.Service.Area),
+	              family = Tpoisson(link = 'log'), 
+	              data = train)
+summary(Hierarchical_LOS, details=TRUE, max.print=99999999)
+```
+
+```{r, hierarch-eval}
+# Evaluate Hierarchical LOS model
+eval_LOS_Hier <- evaluate_model(Hierarchical_LOS, test, "Length.of.Stay")
+```
+
+## Cost per Day
+
+### Linear Regression
+In predicting cost per day, we focused on comparing simple linear regression results to the results for a hierarchical linear model accounting for the variance in serivce area and hospital county. We predicted that we would see an improvement in performance by using a more complicated and computationally heavy approach using the hierarchical structure. 
+
+```{r, cpd-lin-reg, eval = FALSE}
+# Linear regression for cost per day
+linearReg_Cost <- lm(Cost.per.Day ~ Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
+                + Emergency.Department.Indicator
+                + Health.Service.Area
+                + Hospital.County
+                , data = train)
+summary(linearReg_Cost)
+```
+
+7 coefficients were not estimated due to singularities similarly to the results from the length of stay analysis. 
+
+The output shows a $R^2$ of 0.2268 on the training data. 
 
 ```{r, cpd-lin-reg-eval, eval = FALSE}
 
-# Remove observations when cost per day are 0 because mean relative error will give infinity for those observations
-test <- test[!test$Cost.per.Day == 0, ]
-
-linearReg_preds <- predict(linearReg, test)
-
-linearReg_MAE <- MAE(linearReg_preds, test$Cost.per.Day)
-linearReg_MRE <- MRE(linearReg_preds, test$Cost.per.Day)
-linearReg_RMSE <- RMSE(linearReg_preds, test$Cost.per.Day)
+# Evaluate Linear regression cost per day model
+eval_Cost_linear <- evaluate_model(linearReg_Cost, test, "Cost.per.Day")
 ```
-
-
 
 ### Hierarchical Linear Regression
 
 ```{r, cpd-hlin-reg, eval = FALSE}
-Hierarchical_cost <- HLfit(Cost.per.Day ~  Age.Group
-             + Gender
-             + Race
-             + Ethnicity
-             + Type.of.Admission
-             + APR.MDC.Code
-             + APR.Severity.of.Illness.Code
-             + APR.Risk.of.Mortality
-        #     + Payment.Typology.1
-        #     + Payment.Typology.2 
-        #     + Payment.Typology.3
-             + Emergency.Department.Indicator
-             + Health.Service.Area
-             + (1 | Hospital.County / Health.Service.Area)
-             + (1 | Facility.Id / Hospital.County / Health.Service.Area), 
-             family = gaussian, data = train)
+Hierarchical_cost <- lmer(Cost.per.Day ~  Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
+                + Emergency.Department.Indicator
+              #  + Health.Service.Area
+                + (1 | Hospital.County / Health.Service.Area), 
+                data = train)
 
 summary(Hierarchical_cost)
 ```
 
 ```{r, cpd-hlin-reg-eval, eval = FALSE}
-# Evaluation metrics
-hierarchical_preds <- predict(Hierarchical_cost, test)
 
-hierarchical_MAE <- MAE(hierarchical_preds, test$Cost.per.Day)
-hierarchical_MRE <- MRE(hierarchical_preds, test$Cost.per.Day)
-hierarchical_RMSE <- RMSE(hierarchical_preds, test$Cost.per.Day)
+# Evaluation Hierarchical model for cost per day
+eval_Cost_Hier <- evaluate_model(Hierarchical_cost, test, "Cost.per.Day")
+
 ```
 
 ## Model Comparison
 ```{r, model-comp, eval = FALSE}
-compare <- data.frame(matrix(, nrow = 4, ncol = 3))
+compare <- data.frame(matrix(, nrow = 3, ncol = 3))
 colnames(compare) <- c('', 'Linear Regression', 'Hierarchical Linear Regression')
 
 #Factor
@@ -720,17 +740,17 @@ compare[2,1] <- 'Mean Relative Error'
 compare[3,1] <- 'Root Mean Squared Error'
 
 #Linear Regression
-compare[1,2] <- linearReg_MAE
-compare[2,2] <- linearReg_MRE
-compare[3,2] <- linearReg_RMSE
+compare[1,2] <- eval_Cost_linear[1]
+compare[2,2] <- eval_Cost_linear[2]
+compare[3,2] <- eval_Cost_linear[3]
   
 # Hierarchical Linear Regression
-compare[1,3] <- hierarchical_MAE
-compare[2,3] <- hierarchical_MRE
-compare[3,3] <- hierarchical_RMSE
+compare[1,3] <- eval_Cost_Hier[1]
+compare[2,3] <- eval_Cost_Hier[2]
+compare[3,3] <- eval_Cost_Hier[3]
 
 # Print table
-kable_styling(kbl(compare))
+report_table(compare)
 ```
 
 The evaluation metrics between the two methods are very similar indicating that there wasn't much to gain in performance by using the more computationally intensive method. We believe this could perhaps be the case because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. However, the reward you do get for running the hierarchical model is that it better represents the structure of the data, and it knows how to treat the nested variables. Since linear regression does not have the knowledge of the correlation between the nested variables, it ends up not being able to estimate certain coefficients and you get the warning "prediction from a rank-deficient fit may be misleading" when trying to predict using the linear regression model. Thus, it is better to take into account the hierarchical structure of the results to be able to trust the results of your predictions.
