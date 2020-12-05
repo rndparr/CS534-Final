@@ -15,9 +15,9 @@ output:
     fig_width: 7
     fig_height: 4.5
     pandoc_args: [
-      "--bibliography", "input/biblio.bib",
-      "--csl", "input/citestyle.csl",
-      "--metadata", "link-citations=true"
+      '--bibliography', 'input/biblio.bib',
+      '--csl', 'input/citestyle.csl',
+      '--metadata', 'link-citations=true'
       ]
     code_folding: hide
     theme: lumen
@@ -258,8 +258,8 @@ girafe_options(
       xlab('APR MDC Code') +
       ylab('Average Length of Stay'))),
   opts_sizing(rescale = TRUE), 
-  opts_tooltip(opacity = .8, css = "background-color:gray;color:white;padding:2px;border-radius:2px;"),
-  opts_hover(css = "fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;"))
+  opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
+  opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
 
 ```
 
@@ -381,8 +381,8 @@ Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases a
 #       xlab('APR MDC Code') +
 #       ylab('Average Length of Stay'))),
 #   opts_sizing(rescale = TRUE), 
-#   opts_tooltip(opacity = .8, css = "background-color:gray;color:white;padding:2px;border-radius:2px;"),
-#   opts_hover(css = "fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;"))
+#   opts_tooltip(opacity = .8, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
+#   opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
 
 girafe_options(
   girafe(code = print(
@@ -397,8 +397,8 @@ girafe_options(
       xlab('APR MDC Code') +
       ylab('Average Cost per day'))),
   opts_sizing(rescale = TRUE), 
-  opts_tooltip(opacity = .9, css = "background-color:gray;color:white;padding:2px;border-radius:2px;"),
-  opts_hover(css = "fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;"))
+  opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
+  opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
 
 ```
 
@@ -527,8 +527,8 @@ girafe_options(
     xlab('APR MDC Code') +
     ylab('Frequency')),
     opts_sizing(rescale = FALSE), 
-    opts_tooltip(opacity = .9, css = "background-color:gray;color:white;padding:2px;border-radius:2px;"),
-    opts_hover(css = "fill:#1279BF;stroke:#1279BF;cursor:pointer;"))
+    opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
+    opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;'))
 
 ```
 
@@ -629,7 +629,7 @@ The $R^2$ value for the simple linear regression on the training data is 0.2094.
 ```{r, lin-reg-eval}
 
 # Evaluate linear regression model
-eval_LOS_linear <- evaluate_model(linearReg, test, "Length.of.Stay")
+eval_LOS_linear <- evaluate_model(linearReg, test, 'Length.of.Stay')
 ```
 
 
@@ -660,7 +660,7 @@ Note, the same hospital county coefficients were not estimated in using the Pois
 ```{r, pois-reg-eval}
 
 # Evaluate Poisson model
-eval_LOS_Poi <- evaluate_model(Poi, test, "Length.of.Stay")
+eval_LOS_Poi <- evaluate_model(Poi, test, 'Length.of.Stay')
 ```
 
 
@@ -689,7 +689,7 @@ summary(ZeroTruncated_Poi)
 
 ```{r, ztpois-eval}
 # Evaluate Zero-Truncated Poisson model
-eval_LOS_ZeroTruncPoi <- evaluate_model(ZeroTruncated_Poi, test, "Length.of.Stay")
+eval_LOS_ZeroTruncPoi <- evaluate_model(ZeroTruncated_Poi, test, 'Length.of.Stay')
 ```
 
 
@@ -718,7 +718,7 @@ summary(Hierarchical_LOS, details=TRUE, max.print=99999999)
 
 ```{r, hierarch-eval}
 # Evaluate Hierarchical LOS model
-eval_LOS_Hier <- evaluate_model(Hierarchical_LOS, test, "Length.of.Stay")
+eval_LOS_Hier <- evaluate_model(Hierarchical_LOS, test, 'Length.of.Stay')
 ```
 
 ## Cost per Day
@@ -752,7 +752,7 @@ The output shows a $R^2$ of 0.2268 on the training data.
 ```{r, cpd-lin-reg-eval, eval = FALSE}
 
 # Evaluate Linear regression cost per day model
-eval_Cost_linear <- evaluate_model(linearReg_Cost, test, "Cost.per.Day")
+eval_Cost_linear <- evaluate_model(linearReg_Cost, test, 'Cost.per.Day')
 ```
 
 ### Hierarchical Linear Regression
@@ -779,7 +779,7 @@ summary(Hierarchical_cost)
 ```{r, cpd-hlin-reg-eval, eval = FALSE}
 
 # Evaluation Hierarchical model for cost per day
-eval_Cost_Hier <- evaluate_model(Hierarchical_cost, test, "Cost.per.Day")
+eval_Cost_Hier <- evaluate_model(Hierarchical_cost, test, 'Cost.per.Day')
 
 ```
 
