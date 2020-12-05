@@ -101,20 +101,6 @@ dat <- read.csv('input/Hospital_Inpatient_Discharges__SPARCS_De-Identified___201
   na.strings = c('NA', ''))
 ```
 
-
-<!-- dat_hf <- read.csv('input/Health_Facility_General_Information.csv',
-  colClasses =  c('factor', 'NULL', rep('factor', 2), rep('NULL', 32)),
-  skipNul = TRUE)
-colnames(dat_hf) <- c('Facility.Id', 'Facility.Type.Short', 'Facility.Type')
-
-unique(dat_hf[, c('Facility.Type.Short', 'Facility.Type')])
-
-
-bleh <- apply(dat_hf[, c('Facility.Type.Short', 'Facility.Type')], 1, paste0, collapse = '_')
-unique(bleh)
-unique(dat_hf[, c('Facility.Type.Short', 'Facility.Type')])
- -->
-
 We will also be incorporating two more variables into our analysis from a second dataset called Health Facility General Information which is also provided by the New York State Department of Health. We can match the Facility IDs between the two datasets and be able to use two additional variables in the analysis, Facility Type and Ownership Type [@newyorkstatedepartmentofhealthHealthFacilityGeneral2014].
 
 ```{r, data-import-healthfacility}
@@ -130,7 +116,7 @@ dat_hf <- dat_hf[!duplicated(dat_hf), ]
 colnames(dat_hf) <- c('Facility.Id', 'Facility.Type', 'Ownership.Type')
 
 # merge datasets by Facility Id
-dat <- droplevels(merge(dat, dat_hf, by = 'Facility.Id', all.x = TRUE))
+dat <- droplevels(merge(dat, dat_hf, by = 'Facility.Id', all.x = TRUE, sort = FALSE))
 ```
 
 ```{r, data-display-raw, class.source = NULL}
@@ -153,15 +139,13 @@ dat$Total.Costs <- as.numeric(substring(dat$Total.Costs, 2))
 # Create cost per day variable
 dat$Cost.per.Day <- dat$Total.Costs / dat$Length.of.Stay
 
+
 # Re-order factors
-dat$APR.MDC.Code <- factor(dat$APR.MDC.Code, labels = as.character(0:25))
+dat$APR.MDC.Code <- factor(dat$APR.MDC.Code, levels = as.character(0:25))
 
 dat$APR.Severity.of.Illness.Description <- factor(
   dat$APR.Severity.of.Illness.Description, 
-  labels = c('Minor', 'Moderate', 'Major', 'Extreme'))
-
-# dat$Type.of.Admission <- factor(dat$Type.of.Admission,
-#   labels = c('Elective', 'Trauma', 'Emergency', 'Urgent', 'Newborn', 'Not Available'))
+  levels = c('Minor', 'Moderate', 'Major', 'Extreme'))
 
 # Remove columns:
 ## discharge year is 2015 for all rows
@@ -197,14 +181,10 @@ The following codes are Major Diagnostic Categories (MDC) that generally corresp
 mdc_codes <- data.frame('MDC Code' = as.character(0:25), 
   'Description' = c('Pre-MDC or Ungroupable', 'Diseases and Disorders of the Nervous System', 'Diseases and Disorders of the Eye', 'Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders', 'Diseases and Disorders of the Respiratory System', 'Diseases and Disorders of the Circulatory System', 'Diseases and Disorders of the Digestive System', 'Diseases and Disorders of the Hepatobiliary System and Pancreas', 'Diseases and Disorders of the Musculoskeletal System and Connective Tissue', 'Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast', 'Endocrine, Nutritional and Metabolic Diseases and Disorders', 'Diseases and Disorders of the Kidney and Urinary Tract', 'Diseases and Disorders of the Male Reproductive System', 'Diseases and Disorders of the Female Reproductive System', 'Pregnancy, Childbirth and the Puerperium', 'Newborns and Other Neonates with Conditions Originating in the Perinatal Period', 'Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders', 'Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy', 'Infectious and Parasitic Diseases, Systemic or Unspecified Sites', 'Mental Diseases and Disorders', 'Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders', 'Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment', 'Burns', 'Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts', 'Human Immunodeficiency Virus (HIV) Infections', 'Multiple Significant Trauma'))
 
-dat <- merge(dat, mdc_codes, by.x = 'APR.MDC.Code', by.y = 'MDC Code', all.x = TRUE)
-colnames(dat)[which(colnames(dat) == 'Description')] <- 'APR.MDC.Description'
-
 report_table(mdc_codes, 
   w = '650px', 
   ec = 'position: center; display: block; margin: auto;')
 ```
-
 
 
 ## Figures
@@ -254,7 +234,18 @@ The longest average length of stay among MDC groups was the 0 MDC group which co
 #   ggtitle('Average Length of Stay by APR MDC Code') +
 #   xlab('APR MDC Code') +
 #   ylab('Average Length of Stay')
-girafe(ggplot(dat, 
+# los_avg_mdc <- ggplot(dat, 
+#   aes(x = APR.MDC.Code, 
+#     y = Length.of.Stay,
+#     tooltip = APR.MDC.Description)) +
+#   geom_bar_interactive(stat = 'summary', 
+#     fun = 'mean',
+#     fill = '#69b3a2') +
+#   ggtitle('Average Length of Stay by APR MDC Code') +
+#   xlab('APR MDC Code') +
+#   ylab('Average Length of Stay')
+
+girafe(code = print(ggplot(dat, 
   aes(x = APR.MDC.Code, 
     y = Length.of.Stay,
     tooltip = APR.MDC.Description)) +
@@ -263,7 +254,7 @@ girafe(ggplot(dat,
     fill = '#69b3a2') +
   ggtitle('Average Length of Stay by APR MDC Code') +
   xlab('APR MDC Code') +
-  ylab('Average Length of Stay'))
+  ylab('Average Length of Stay')))
 ```
 
 As severity of illness increases, average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
