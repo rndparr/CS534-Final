@@ -46,9 +46,9 @@ pre[class] {
 
 ```{r, setup, include = FALSE, echo = FALSE}
 knitr::opts_chunk$set(
-  cache = TRUE, 
+  # cache = TRUE, 
   # cache = FALSE, 
-  cache.lazy = FALSE, 
+  # cache.lazy = FALSE, 
   # cache.lazy = TRUE, 
   error = TRUE, 
   warning = FALSE,
@@ -121,7 +121,7 @@ In addition to the columns found in the Kaggle dataset [@almeida2015Deidentified
 ```{r, data-import-healthfacility}
 # read in facility id and description columns from facility information dataset
 dat_hf <- read.csv('input/Health_Facility_General_Information.csv',
-  colClasses =  c('factor', rep('NULL', 2), 'factor', rep('NULL', 28), 'factor', rep('NULL', 3)),
+  colClasses =  c('factor', rep('NULL', 2), 'character', rep('NULL', 28), 'character', rep('NULL', 3)),
   skipNul = TRUE)
 
 # remove duplicate rows
@@ -163,12 +163,10 @@ dat$APR.Severity.of.Illness.Description <- factor(
   exclude = NULL)
 
 # code NA Facility.Type as Missing
-dat$Facility.Type <- as.character(dat$Facility.Type)
 dat[which(is.na(dat$Facility.Type)), 'Facility.Type'] <- 'Missing'
 dat$Facility.Type <- factor(dat$Facility.Type)
 
 # code NA Ownership.Type as Missing
-dat$Ownership.Type <- as.character(dat$Ownership.Type)
 dat[which(is.na(dat$Ownership.Type)), 'Ownership.Type'] <- 'Missing'
 dat$Ownership.Type <- factor(dat$Ownership.Type)
 
@@ -807,7 +805,6 @@ Hierarchical_LOS <- HLfit(
     + APR.Severity.of.Illness.Code
     + APR.Risk.of.Mortality
     + Ownership.Type
-    + Facility.Type
     + Emergency.Department.Indicator
     + (1 | Hospital.County / Health.Service.Area),
   family = Tpoisson(link = 'log'), 
