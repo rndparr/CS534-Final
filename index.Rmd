@@ -156,6 +156,13 @@ dat$APR.Severity.of.Illness.Description <- factor(
   dat$APR.Severity.of.Illness.Description, 
   levels = c('Minor', 'Moderate', 'Major', 'Extreme'))
 
+# If Facility.Type and Ownership.Type are NA, then make it it's own category of Missing
+dat$Facility.Type = factor(dat$Facility.Type, levels=c(levels(dat$Facility.Type), 'Missing'))
+dat[which(is.na(dat$Facility.Type)), 'Facility.Type'] <- 'Missing'
+
+dat$Ownership.Type = factor(dat$Ownership.Type, levels=c(levels(dat$Ownership.Type), 'Missing'))
+dat[which(is.na(dat$Ownership.Type)), 'Ownership.Type'] <- 'Missing'
+
 # Remove columns:
 ## discharge year is 2015 for all rows
 ## provider license numbers are many-leveled factors unused in analysis
