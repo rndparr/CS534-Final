@@ -29,7 +29,7 @@ output:
 # Introduction
 Predicting patient outcomes early in the admission process is an important part of hospital management [@tierneyPredictingInpatientCosts1995;@tsaiLengthHospitalStay2016]. Estimating a patient's length of stay, for instance, assists in logistics such as allocation of hospital resources [@tsaiLengthHospitalStay2016]. The ability to predict patient-specific healthcare costs helps us gain understanding of the situations that lead to high healthcare costs and can inform future decisions in preventative care, which has been shown to be one of the best ways to decrease healthcare cost [@yangMachineLearningApproaches2018].  
 
-For our final project we will be using the Statewide Planning and Research Cooperative System (SPARCS) Inpatient De-identified File dataset (originally provided the New York State Department of Health [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017]) as it appears on Kaggle to predict length of stay (LOS) in days, a metric used to assess hospital efficiency and quality of care [@oecdAverageLengthStay2011;@robinsonPredictionHospitalLength1966;@tsaiLengthHospitalStay2016], and patient cost per day. The full dataset contains nearly 2.35 million de-identified observations and 37 features about hospital inpatient discharge data for 2015.
+For our final project we will be using the Statewide Planning and Research Cooperative System (SPARCS) Inpatient De-identified File dataset (originally provided the New York State Department of Health [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017]) as it appears on Kaggle [@almeida2015DeidentifiedNY2018] to predict length of stay (LOS) in days, a metric used to assess hospital efficiency and quality of care [@oecdAverageLengthStay2011;@robinsonPredictionHospitalLength1966;@tsaiLengthHospitalStay2016], and patient cost per day. The full dataset contains nearly 2.35 million de-identified observations and 37 features about hospital inpatient discharge data for 2015.
 
 
 # Set Up
@@ -63,6 +63,7 @@ knitr::opts_chunk$set(
 ```{r, load-libraries, message = FALSE}
 library(ggplot2)
 library(ggiraph)
+library(htmlwidgets)
 library(kableExtra)
 library(lme4)
 library(spaMM)
@@ -95,12 +96,12 @@ report_plot <- function(x){
     opts_sizing(rescale = TRUE), 
     opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
     opts_hover(css = 'cursor:pointer;'),
-    htmlwidgets::sizingPolicy(defaultWidth = '800px', defaultHeight = '494px'))
+    sizingPolicy(defaultWidth = '700px', defaultHeight = '300px'))
 }
 
 ```
 
-# Data Import
+## Data Import
 
 ```{r, data-import}
 # Import the data
@@ -111,7 +112,7 @@ dat <- read.csv('input/Hospital_Inpatient_Discharges__SPARCS_De-Identified___201
   na.strings = c('NA', ''))
 ```
 
-In addition to the columns found in the Kaggle dataset, we will also be using the New York State Department of Health's "Health Facility General Information" dataset [@newyorkstatedepartmentofhealthHealthFacilityGeneral2014] in order to incorporate Facility Type and Ownership Type variables into our analysis by matching on Facility ID.
+In addition to the columns found in the Kaggle dataset [@almeida2015DeidentifiedNY2018], we will also be using the New York State Department of Health's "Health Facility General Information" dataset [@newyorkstatedepartmentofhealthHealthFacilityGeneral2014] in order to incorporate Facility Type and Ownership Type variables into our analysis by matching on Facility ID.
 
 ```{r, data-import-healthfacility}
 # read in facility id and description columns from facility information dataset
@@ -169,6 +170,8 @@ dat <- dat[, which(!(colnames(dat) %in% c(
   'Patient.Disposition')))]
 ```
 
+# Preliminary Data Exploration
+
 ```{r, data-clean-old}
 # Look at makeup of dataset
 summary(dat)
@@ -177,9 +180,6 @@ summary(dat)
 ```{r, data-display, class.source = NULL}
 report_table(head(dat, 50))
 ```
-
-
-# Preliminary Data Exploration
 
 ## MDC Codes
 
@@ -335,6 +335,8 @@ ggplot(dat,
 
 ***
 
+## CPD Figures {.tabset}
+
 ### Avg CPD by Admission {-}
 
 Cost per day is highest in patients with elective procedures and cases of trauma.
@@ -407,28 +409,25 @@ Municipality owned hospitals' cost per patient per day is at least $1000 more on
 
 ***
 
-## Birth Weight 
 
-We chose to filter out observations that were related to pregnancy and newborn data as there are unique characteristics of their features. The birthweight feature, for example, was only reported for newborns. For all other observations, the birthweight was recorded as 0. 
+## OBGYN/Neonate Data {.tabset}
+The features of observations related to pregnancy and newborns/neonates have unique characteristics that differentiate them from the rest of the data. 
+
+
+### Birth Weight {-}
+
+We chose to filter out observations that were related to pregnancy and newborn data as there are unique characteristics of their features. 
+
+Birth weight was only reported for newborns and neonates. For all other observations, birth weight was recorded as 0. 
 
 In the figure below, we see that over 2 million observations have birth weight equal to 0.
 
-```{r, birthweight, class.source = NULL, message = FALSE, cache.lazy = FALSE}
-# report_plot(
-#   ggplot(dat, aes(x = Birth.Weight)) + 
-#     geom_histogram_interactive( aes(tooltip = ..count..),
-#       fill = '#69b3a2', 
-#       alpha = 0.9) +
-#   ggtitle('Distribution of Birth Weight') +
-#   xlab('Birth Weight (grams)') +
-#   ylab('Frequency'))
-
-
+```{r, birthweight, class.source = NULL, message = FALSE}
 report_plot(
   ggplot(dat) + 
     geom_histogram_interactive(
       aes(x = Birth.Weight, tooltip = ..count..),
-      binwidth = 1, 
+      binwidth = 300, 
       fill = '#69b3a2', 
       color = '#e9ecef', 
       alpha = 0.9) +
@@ -437,14 +436,17 @@ report_plot(
     ylab('Frequency'))
 ```
 
-## Abortion Indicator
+*** 
+
+### Abortion Indicator {-}
 
 Due to confidentiality concerns, some columns were censored if the discharge record for that observation contained any potential indication of abortion, including but not limited to: elective abortion procedures, miscarriages, ectopic pregnancies, etc.
 
-All observations with missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y'. 
-<!-- We found that 100% of missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y', meaning the discharge record had some mention of abortion.  -->The plot below shows the MDC codes that had observations where Abortion.Edit.Indicator was equal to 'Y'. The majority of these observations were when APR MDC Code was equal to 14 which corresponds to the MDC 'Pregnancy, Childbirth And Puerperium'. 
+All observations with missing data for Facility.Id, Health Service Area, and Hospital County also had `Abortion.Edit.Indicator` = 'Y'. 
+<!-- We found that 100% of missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y', meaning the discharge record had some mention of abortion.  -->
+The plot below shows the MDC codes that had observations where `Abortion.Edit.Indicator` was equal to 'Y'. The majority of these observations were when `APR.MDC.Code` was equal to 14 which corresponds to the MDC 'Pregnancy, Childbirth And Puerperium'. 
 
-```{r, abortion, class.source = NULL, message = FALSE, cache.lazy = FALSE}
+```{r, abortion, class.source = NULL, message = FALSE}
 report_plot(
  ggplot(subset(dat, dat$Abortion.Edit.Indicator == "Y"),
    aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) +
@@ -457,17 +459,19 @@ report_plot(
    scale_y_continuous(labels = scales::comma))
 ```
 
-## Data Filtering
+*** 
+
+### Final Criteria {-}
 
 Rows meeting any of the following criteria were filtered:
 
-* APR.DRG.Code corresponding to a APR.DRG.Description containing OB-GYN-related terms
-* CCS.Diagnosis.Code corresponding to a CCS.Diagnosis.Description containing OB-GYN-related terms
-* APR.MDC.Code = 14 ['Pregnancy, Childbirth And Puerperium']
-* APR.MDC.Code = 15 ['Newborn And Other Neonates (Perinatal Period)']
-* Abortion.Edit.Indicator = 'Y'
-* Type.of.Admission = 'Newborn'
-* Birth.Weight > 0
+* `APR.DRG.Code` corresponding to a `APR.DRG.Description` containing OB-GYN-related terms
+* `CCS.Diagnosis.Code` corresponding to a `CCS.Diagnosis.Description` containing OB-GYN-related terms
+* `APR.MDC.Code` = 14 ['Pregnancy, Childbirth And Puerperium']
+* `APR.MDC.Code` = 15 ['Newborn And Other Neonates (Perinatal Period)']
+* `Abortion.Edit.Indicator` = 'Y'
+* `Type.of.Admission` = 'Newborn'
+* `Birth.Weight` > 0
 
 
 ```{r, filtering}
@@ -520,6 +524,8 @@ dat <- dat[, which(!(colnames(dat) %in% c('Abortion.Edit.Indicator','Birth.Weigh
 
 After filtering, there there are `r nrow(dat)` observations remaining.
 
+*** 
+
 # Medicare Patient Data
 
 Due to the amount of computing power that it would take to analyze the whole dataset, we chose to subset the data by if any of a patient's payment types (primary, secondary, or tertiary) were Medicare. 874,388 patients had Medicare as their primary payment type, and 55,333 additional patients had Medicare as either their secondary or tertiary payment type for a total of 929,721 patients.
@@ -537,7 +543,7 @@ dat <- droplevels(dat)
 # any is medicare is 929721
  -->
 
-## Figures {.tabset}
+## LOS Figures {.tabset}
  <!-- using subset of data (Only Medicare) -->
 
 ### LOS {-}
@@ -656,7 +662,7 @@ evaluate_model <- function(model, test, response){
 
 ## Length of Stay
 
-In the following models, we consider the following variables to predict length of stay.
+In the following models, we consider the following variables [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017] to predict length of stay.
 
 <!-- - Age.Group: Age in years at time of discharge grouped into 0 to 17, 18 - 29, 30 - 49, 50 - 69, 70+
 - Gender: Male, Female, Unknown
@@ -674,7 +680,7 @@ In the following models, we consider the following variables to predict length o
 
  -->
 
-***
+<!-- ***
 | Column                          | Description                                                                                                                   |
 |---------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | Age.Group                       | Age in years at time of discharge grouped into 0 to 17, 18 to 29, 30 to 49, 50 to 69, 70+                                    |
@@ -690,8 +696,26 @@ In the following models, we consider the following variables to predict length o
 | Emergency.Department.Indicator  | If the record contained an Emergency Department revenue code of 045X, the indicator is set to "Y", otherwise it will be “N”. |
 | Health.Service.Area             | 8 service areas represented                                                                                                  |
 | Hospital.County                 | 57 Hospital counties represented     
-
-***
+*** -->
+```{r, lin-reg-vars, class.source = NULL}
+report_table(
+  data.frame(matrix(
+    c('Age.Group', 'Age in years at time of discharge grouped into 0 to 17, 18 to 29, 30 to 49, 50 to 69, 70+', 
+    'Gender', 'Male, Female, Unknown', 
+    'Race', 'Black/African American, Multi, Other Race, Unknown, White. ', 
+    'Ethnicity', 'Spanish/Hispanic Origin, Not of Spanish/Hispanic Origin, Multi, Unknown.', 
+    'Type.of.Admission', 'Elective, Emergency, Newborn, Not Available, Trauma, Urgent.', 
+    'APR.MDC.Code', '0-25', 
+    'APR.Severity.of.Illness.Code', 'Minor (1), Moderate (2), Major (3) , Extreme (4). ', 
+    'APR.Risk.of.Mortality', 'Minor (1), Moderate (2), Major (3) , Extreme (4).', 
+    'Ownership.Type', 'County, Municipality, Not for Profit Corporation, Public Benefit Corporation, State', 
+    'Facility.Type', 'Hospital, Primary Care Hospital - Critical Access Hospital', 
+    'Emergency.Department.Indicator', 'If the record contained an Emergency Department revenue code of 045X, the indicator is set to "Y", otherwise it will be "N".', 
+    'Health.Service.Area', '8 service areas represented', 
+    'Hospital.County', '57 Hospital counties represented'), 
+    ncol = 2, byrow = TRUE, 
+    dimnames = list(NULL, c('Column','Description')))))
+```
 
 All of these variables are recorded at admission so no future information such as Total Cost is included in the model.
 
@@ -714,17 +738,17 @@ linearReg <- lm(Length.of.Stay ~ Age.Group
                 + Health.Service.Area
                 + Hospital.County 
               , data = train)
-summary(linearReg)
-
-R_squared = round(summary(linearReg)$r.squared, 4)
 
 # Evaluate linear regression model
 eval_LOS_linear <- evaluate_model(linearReg, test, 'Length.of.Stay')
+
+# print model summary
+summary(linearReg)
 ```
 
 Note that 7 coefficients are not defined due to singularities. The undefined factors are all from within the hospital county variable. We believe that this is due to the nested structure of the data. Hospital county can directly predict hospital service area because the hospital county variable is nested within the hospital service area. This is another reason that simple linear regression is not the best model for this data.
 
-The $R^2$ value for the simple linear regression on the training data is `r R_squared`. 
+The $R^2$ value for the simple linear regression on the training data is `r round(summary(linearReg)$r.squared, 4)`. 
 
 
 ### Poisson Model
@@ -746,10 +770,12 @@ Poi <- glm(Length.of.Stay ~  Age.Group
                 + Hospital.County, 
                 family = Poisson(link = 'log'),
                 data = train)
-summary(Poi)
 
 # Evaluate Poisson model
 eval_LOS_Poi <- evaluate_model(Poi, test, 'Length.of.Stay')
+
+# print model summary
+summary(Poi)
 ```
 
 Note, the same hospital county coefficients were not estimated in using the Poisson model either. 
@@ -775,10 +801,12 @@ ZeroTruncated_Poi <- glm(Length.of.Stay ~ Age.Group
                 + Hospital.County, 
 	              family = Tpoisson(link = 'log'),
 	              data = train)
-summary(ZeroTruncated_Poi)
 
 # Evaluate Zero-Truncated Poisson model
 eval_LOS_ZeroTruncPoi <- evaluate_model(ZeroTruncated_Poi, test, 'Length.of.Stay')
+
+# print model summary
+summary(ZeroTruncated_Poi)
 ```
 
 
@@ -801,10 +829,12 @@ Hierarchical_LOS <- HLfit(Length.of.Stay ~ Age.Group
 		            + (1 | Hospital.County / Health.Service.Area),
 	              family = Tpoisson(link = 'log'), 
 	              data = train)
-summary(Hierarchical_LOS, details=TRUE, max.print=99999999)
 
 # Evaluate Hierarchical LOS model
 eval_LOS_Hier <- evaluate_model(Hierarchical_LOS, test, 'Length.of.Stay')
+
+# print model summary
+summary(Hierarchical_LOS, details=TRUE, max.print=99999999)
 ```
 
 
@@ -872,17 +902,17 @@ linearReg_Cost <- lm(Cost.per.Day ~ Age.Group
                 + Health.Service.Area
                 + Hospital.County
                 , data = train)
-summary(linearReg_Cost)
-
-R_squared2 = round(summary(linearReg_Cost)$r.squared, 4)
 
 # Evaluate Linear regression cost per day model
 eval_Cost_linear <- evaluate_model(linearReg_Cost, test, 'Cost.per.Day')
+
+# print model summary
+summary(linearReg_Cost)
 ```
 
 7 coefficients were not estimated due to singularities similarly to the results from the length of stay analysis. 
 
-<!-- The output shows a $R^2$ of `r #R_squared2` on the training data.  ***-->
+<!-- The output shows a $R^2$ of `r #round(summary(linearReg_Cost)$r.squared, 4)` on the training data.  ***-->
 
 
 
@@ -903,10 +933,11 @@ Hierarchical_cost <- lmer(Cost.per.Day ~  Age.Group
                 + (1 | Hospital.County / Health.Service.Area), 
                 data = train)
 
-summary(Hierarchical_cost)
-
 # Evaluation Hierarchical model for cost per day
 eval_Cost_Hier <- evaluate_model(Hierarchical_cost, test, 'Cost.per.Day')
+
+# print model summary
+summary(Hierarchical_cost)
 ```
 
 ### Model Comparison
