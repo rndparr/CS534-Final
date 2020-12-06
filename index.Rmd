@@ -67,7 +67,7 @@ library(htmlwidgets)
 library(kableExtra)
 library(lme4)
 library(spaMM)
-spaMM.options('nb_cores' = future::availableCores())
+spaMM.options('nb_cores' = future::availableCores() - 1)
 ```
 
 ## Miscellaneous Functions
@@ -162,11 +162,12 @@ dat$APR.Severity.of.Illness.Description <- factor(
 # dat$Facility.Type = factor(dat$Facility.Type, levels=c(levels(dat$Facility.Type), 'Missing'))
 # dat[which(is.na(dat$Facility.Type)), 'Facility.Type'] <- 'Missing'
 dat$Facility.Type = factor(dat$Facility.Type, exclude = NULL)
+dat[which(is.na(dat$Facility.Type)), 'Facility.Type'] <- 'Missing'
 
 # dat$Ownership.Type = factor(dat$Ownership.Type, levels=c(levels(dat$Ownership.Type), 'Missing'))
 # dat[which(is.na(dat$Ownership.Type)), 'Ownership.Type'] <- 'Missing'
 dat$Ownership.Type = factor(dat$Ownership.Type, exclude = NULL)
-
+dat[which(is.na(dat$Ownership.Type)), 'Ownership.Type'] <- 'Missing'
 
 # Remove columns:
 ## discharge year is 2015 for all rows
@@ -751,6 +752,8 @@ linearReg <- lm(
     + Hospital.County,
   data = train)
 
+R2_linreg_los <- round(summary(linearReg)$r.squared, 4)
+
 # Evaluate linear regression model
 eval_LOS_linear <- evaluate_model(linearReg, test, 'Length.of.Stay')
 
@@ -760,7 +763,7 @@ summary(linearReg)
 
 Note that 7 coefficients are not defined due to singularities. The undefined factors are all from within the hospital county variable. We believe that this is due to the nested structure of the data. Hospital county can directly predict hospital service area because the hospital county variable is nested within the hospital service area. This is another reason that simple linear regression is not the best model for this data.
 
-The $R^2$ value for the simple linear regression on the training data is `{r, cache = TRUE} round(summary(linearReg)$r.squared, 4)`. 
+The $R^2$ value for the simple linear regression on the training data is `r R2_linreg_los`. 
 
 
 ### Poisson Model
@@ -922,12 +925,15 @@ linearReg_Cost <- lm(
 # Evaluate Linear regression cost per day model
 eval_Cost_linear <- evaluate_model(linearReg_Cost, test, 'Cost.per.Day')
 
+R2_linreg_cpd <- round(summary(linearReg_Cost)$r.squared, 4)
+
 # print model summary
 summary(linearReg_Cost)
 ```
 
 7 coefficients were not estimated due to singularities similarly to the results from the length of stay analysis. 
-The output shows a $R^2$ of `{r, cache = TRUE} #round(summary(linearReg_Cost)$r.squared, 4)` on the training data.
+The output shows a $R^2$ of `r R2_linreg_cpd
+` on the training data.
 
 
 ### Hierarchical Linear Regression
