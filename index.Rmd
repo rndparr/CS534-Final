@@ -67,7 +67,7 @@ library(htmlwidgets)
 library(kableExtra)
 library(lme4)
 library(spaMM)
-spaMM.options('nb_cores' = future::availableCores() - 2)
+spaMM.options('nb_cores' = future::availableCores())
 ```
 
 ## Miscellaneous Functions
@@ -533,7 +533,7 @@ dat <- dat[-obgyn_rows, ]
 dat <- dat[, which(!(colnames(dat) %in% c('Abortion.Edit.Indicator','Birth.Weight')))]
 ```
 
-After filtering, there there are `r nrow(dat)` observations remaining.
+After filtering, there there are `{r, cache = TRUE} nrow(dat)` observations remaining.
 
 *** 
 
@@ -760,7 +760,7 @@ summary(linearReg)
 
 Note that 7 coefficients are not defined due to singularities. The undefined factors are all from within the hospital county variable. We believe that this is due to the nested structure of the data. Hospital county can directly predict hospital service area because the hospital county variable is nested within the hospital service area. This is another reason that simple linear regression is not the best model for this data.
 
-The $R^2$ value for the simple linear regression on the training data is `r round(summary(linearReg)$r.squared, 4)`. 
+The $R^2$ value for the simple linear regression on the training data is `{r, cache = TRUE} round(summary(linearReg)$r.squared, 4)`. 
 
 
 ### Poisson Model
@@ -797,7 +797,7 @@ Note, the same hospital county coefficients were not estimated in using the Pois
 ### Zero-Truncated Poisson Model
 Next we look at the Zero-Truncated Poisson model. This is a modification of the Poisson model, and it can only take integer values from 1 to infinity. Therfore, this model is more appropriate to model length of stay because it will never take 0 values.
 
-```{r, ztpois-reg, eval = FALSE}
+```{r, ztpois-reg, eval = TRUE}
 # GLM with zero-truncated Poisson
 ZeroTruncated_Poi <- glm(
   Length.of.Stay ~ Age.Group
@@ -827,7 +827,7 @@ summary(ZeroTruncated_Poi)
 ### Hierarchical Zero-Truncated Poisson Model
 Lastly, we fit a hierarchical zero-truncted poisson model. If you look at the variables for Health Serivce Area and Hospital County, you can see that these are nested varaibles. For example, specific hospital counties will only occur in specific health areas. By modeling length of stay as a multi-level model, we can take into account the area-level and county-level effects on length of stay by accounting for unexplained variation in hospital service areas and hospital counties. 
 
-```{r, hztpois-reg, eval = FALSE}
+```{r, hztpois-reg, eval = TRUE}
 # GLM with zero-truncated Poisson, nesting
 Hierarchical_LOS <- HLfit(
   Length.of.Stay ~ Age.Group
@@ -854,7 +854,7 @@ summary(Hierarchical_LOS, details=TRUE, max.print=99999999)
 
 
 ### Model Comparison
-```{r, los-model-comp, eval = FALSE}
+```{r, los-model-comp, eval = TRUE}
 # compare <- data.frame(matrix(, nrow = 3, ncol = 5))
 # colnames(compare) <- c('', 'Linear Regression', 'Poisson', 'Zero-Truncated Poisson','Hierarchical Zero-Truncated Poisson')
 
@@ -901,7 +901,7 @@ report_table(LOS_compare, rownames = TRUE)
 ### Linear Regression
 In predicting cost per day, we focused on comparing simple linear regression results to the results for a hierarchical linear model accounting for the variance in serivce area and hospital county. We predicted that we would see an improvement in performance by using a more complicated and computationally heavy approach using the hierarchical structure since it would account for the structure of the data. 
 
-```{r, cpd-lin-reg, eval = FALSE}
+```{r, cpd-lin-reg, eval = TRUE}
 # Linear regression for cost per day
 linearReg_Cost <- lm(
   Cost.per.Day ~ Age.Group
@@ -927,14 +927,12 @@ summary(linearReg_Cost)
 ```
 
 7 coefficients were not estimated due to singularities similarly to the results from the length of stay analysis. 
-
-<!-- The output shows a $R^2$ of `r #round(summary(linearReg_Cost)$r.squared, 4)` on the training data.  ***-->
-
+The output shows a $R^2$ of `{r, cache = TRUE} #round(summary(linearReg_Cost)$r.squared, 4)` on the training data.
 
 
 ### Hierarchical Linear Regression
 
-```{r, cpd-hlin-reg, eval = FALSE}
+```{r, cpd-hlin-reg, eval = TRUE}
 Hierarchical_cost <- lmer(
   Cost.per.Day ~  Age.Group
     + Gender
@@ -958,7 +956,7 @@ summary(Hierarchical_cost)
 ```
 
 ### Model Comparison
-```{r, cpd-model-comp, eval = FALSE}
+```{r, cpd-model-comp, eval = TRUE}
 # compare2 <- data.frame(matrix(, nrow = 3, ncol = 3))
 # colnames(compare2) <- c('', 'Linear Regression', 'Hierarchical Linear Regression')
 
