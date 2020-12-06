@@ -95,7 +95,7 @@ report_plot <- function(x){
     opts_sizing(rescale = TRUE), 
     opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
     opts_hover(css = 'cursor:pointer;'),
-    sizingPolicy(defaultWidth = '800px', defaultHeight = '494px'))
+    htmlwidgets::sizingPolicy(defaultWidth = '800px', defaultHeight = '494px'))
 }
 
 ```
@@ -282,7 +282,7 @@ report_plot(
 
 ***
 
-### Avg LOS by Ownership {-}
+### LOS by Ownership {-}
 
 Ownership type was one of the variables merged from the second dataset which gave additional information about facility type. There is a clear distinction in mean length of stay between the different ownership types with the longest average length of stay being for a Public Benefit Corporation (PBC). A PBC is a type of for-profit entity. Municipality owned hospitals, which are run by the local government, have the second largest average length of stay 
 
@@ -297,7 +297,7 @@ ggplot(subset(dat, !is.na(Ownership.Type)),
   stat_summary(fun = 'mean', 
     geom = 'bar') +
   theme(legend.position = 'none') +
-  ggtitle('Length of Stay by Ownership Type') +
+  ggtitle('Average Length of Stay by Ownership Type') +
   xlab('Ownership Type') +
   ylab('Average Length of Stay')
 
@@ -379,16 +379,11 @@ Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases a
 
 ```{r, cpd-avg, class.source = NULL, class.source = NULL, message = FALSE}
 report_plot(
-  ggplot(dat, 
-    aes(x = APR.MDC.Code, 
-      y = Cost.per.Day,
-      tooltip = APR.MDC.Description)) +
-    geom_bar_interactive(stat = 'summary',
-      fun = 'mean',
-      fill = '#69b3a2') +
-    ggtitle('Average Cost per day by APR MDC Code') +
-    xlab('APR MDC Code') +
-    ylab('Average Cost per day'))
+  ggplot(dat, aes(x = APR.MDC.Code, y = Cost.per.Day, tooltip = APR.MDC.Description)) + 
+    geom_bar_interactive(stat = "summary", fun = "mean", fill = "#69b3a2") + 
+    ggtitle("Average Cost per day by APR MDC Code") + 
+    xlab("APR MDC Code") + 
+    ylab("Average Cost per day"))
 ```
 
 ***
@@ -418,7 +413,7 @@ We chose to filter out observations that were related to pregnancy and newborn d
 
 In the figure below, we see that over 2 million observations have birth weight equal to 0.
 
-```{r, birthweight, class.source = NULL, message = FALSE, cache = FALSE}
+```{r, birthweight, class.source = NULL, message = FALSE, cache.lazy = FALSE}
 # report_plot(
 #   ggplot(dat, aes(x = Birth.Weight)) + 
 #     geom_histogram_interactive( aes(tooltip = ..count..),
@@ -449,7 +444,7 @@ Due to confidentiality concerns, some columns were censored if the discharge rec
 All observations with missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y'. 
 <!-- We found that 100% of missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y', meaning the discharge record had some mention of abortion.  -->The plot below shows the MDC codes that had observations where Abortion.Edit.Indicator was equal to 'Y'. The majority of these observations were when APR MDC Code was equal to 14 which corresponds to the MDC 'Pregnancy, Childbirth And Puerperium'. 
 
-```{r, abortion, class.source = NULL, message = FALSE}
+```{r, abortion, class.source = NULL, message = FALSE, cache.lazy = FALSE}
 report_plot(
  ggplot(subset(dat, dat$Abortion.Edit.Indicator == "Y"),
    aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) +
@@ -610,7 +605,7 @@ report_plot(
 
 ```{r, test-train}
 # Split train and test set 
-set.seed(123)
+set.seed(123456)
 train_rows <- caret::createDataPartition(
   y = dat$Length.of.Stay, 
   p = 0.7, 
@@ -680,7 +675,6 @@ In the following models, we consider the following variables to predict length o
  -->
 
 ***
-
 | Column                          | Description                                                                                                                   |
 |---------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | Age.Group                       | Age in years at time of discharge grouped into 0 to 17, 18 to 29, 30 to 49, 50 to 69, 70+                                    |
