@@ -151,11 +151,12 @@ dat$Total.Costs <- as.numeric(substring(dat$Total.Costs, 2))
 dat$Cost.per.Day <- dat$Total.Costs / dat$Length.of.Stay
 
 # Re-order factors
-dat$APR.MDC.Code <- factor(dat$APR.MDC.Code, levels = as.character(0:25))
+dat$APR.MDC.Code <- factor(dat$APR.MDC.Code, levels = as.character(0:25), exclude = NULL)
 
 dat$APR.Severity.of.Illness.Description <- factor(
   dat$APR.Severity.of.Illness.Description, 
-  levels = c('Minor', 'Moderate', 'Major', 'Extreme'))
+  levels = c('Minor', 'Moderate', 'Major', 'Extreme'),
+  exclude = NULL)
 
 # If Facility.Type and Ownership.Type are NA, then make it it's own category of Missing
 # dat$Facility.Type = factor(dat$Facility.Type, levels=c(levels(dat$Facility.Type), 'Missing'))
