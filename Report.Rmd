@@ -660,6 +660,24 @@ evaluate_model <- function(model, test, response){
 
 ## Length of Stay
 
+In the following models, we consider the following variables to predict length of stay.
+
+- Age.Group: Age in years at time of discharge grouped into 0 to 17, 18 - 29, 30 - 49, 50 - 69, 70+
+- Gender: Male, Female, Unknown
+- Race: Black/African American, Multi, Other Race, Unknown, White. 
+- Ethnicity: Spanish/Hispanic Origin, Not of Spanish/Hispanic Origin, Multi, Unknown.
+- Type.of.Admission: Elective, Emergency, Newborn, Not Available, Trauma, Urgent.
+- APR.MDC.Code: 0-25
+- APR.Severity.of.Illness.Code: Minor (1), Moderate (2), Major (3) , Extreme (4). 
+- APR.Risk.of.Mortality: Minor (1), Moderate (2), Major (3) , Extreme (4).
+- Ownership.Type: County, Municipality, Not for Profit Corporation, Public Benefit Corporation, State
+- Facility.Type: Hospital, Primary Care Hospital - Critical Access Hospital
+- Emergency.Department.Indicator: If the record contained an Emergency Department revenue code of 045X, the indicator is set to "Y", otherwise it will be “N”.
+- Health.Service.Area: 8 service areas represented
+- Hospital.County : 57 Hospital counties represented
+
+All of these variables are recorded at admission so no future information such as Total Cost is included in the model.
+
 ### Linear Regression
 We wanted to focus our efforts in predicting length of stay through regression methods and not classification methods because knowing the exact number of days a patient would need to stay would be overall more useful than knowing a range of days a patient may stay. We start with a simple linear regression as our base model although we acknowledge that fundamentally, this is not the proper model that we want to use to model length of stay. 
 
@@ -771,7 +789,6 @@ Hierarchical_LOS <- HLfit(Length.of.Stay ~ Age.Group
                 + Ownership.Type
                 + Facility.Type
                 + Emergency.Department.Indicator
-		       #     + Health.Service.Area
 		            + (1 | Hospital.County / Health.Service.Area),
 	              family = Tpoisson(link = 'log'), 
 	              data = train)
@@ -818,10 +835,11 @@ compare[3,5] <- eval_LOS_Hier[3]
 report_table(compare)
 ```
 
+
 ## Cost per Day
 
 ### Linear Regression
-In predicting cost per day, we focused on comparing simple linear regression results to the results for a hierarchical linear model accounting for the variance in serivce area and hospital county. We predicted that we would see an improvement in performance by using a more complicated and computationally heavy approach using the hierarchical structure. 
+In predicting cost per day, we focused on comparing simple linear regression results to the results for a hierarchical linear model accounting for the variance in serivce area and hospital county. We predicted that we would see an improvement in performance by using a more complicated and computationally heavy approach using the hierarchical structure since it would account for the structure of the data. 
 
 ```{r, cpd-lin-reg, eval = FALSE}
 # Linear regression for cost per day
@@ -868,7 +886,6 @@ Hierarchical_cost <- lmer(Cost.per.Day ~  Age.Group
                 + Ownership.Type
                 + Facility.Type
                 + Emergency.Department.Indicator
-              #  + Health.Service.Area
                 + (1 | Hospital.County / Health.Service.Area), 
                 data = train)
 
@@ -906,8 +923,13 @@ compare2[3,3] <- eval_Cost_Hier[3]
 report_table(compare2)
 ```
 
-The evaluation metrics between the two methods are very similar indicating that there wasn't much to gain in performance by using the more computationally intensive method. We believe this could perhaps be the case because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. However, the reward you do get for running the hierarchical model is that it better represents the structure of the data, and it knows how to treat the nested variables. Since linear regression does not have the knowledge of the correlation between the nested variables, it ends up not being able to estimate certain coefficients and you get the warning "prediction from a rank-deficient fit may be misleading" when trying to predict using the linear regression model. Thus, it is better to take into account the hierarchical structure of the results to be able to trust the results of your predictions.
+# Discussion
 
+We did not see a large increase in predictive power as we expected by using the hierarchical linear model in either of the two predictions. The evaluation metrics between the two methods are very similar indicating that there wasn't much to gain in performance by using the more computationally intensive method.However, the reward you do get for running the hierarchical model is that it better represents the structure of the data, and it knows how to treat the nested variables. Since linear regression does not have the knowledge of the correlation between the nested variables, it ends up not being able to estimate certain coefficients and you get the warning "prediction from a rank-deficient fit may be misleading" when trying to predict using the linear regression model. Thus, it is better to take into account the hierarchical structure of the results to be able to trust the results of your predictions.
+
+ If we wanted to use a model to predict length of stay, in practice we don’t want the model to predict -1.5 because that would not be a realistic prediction. At least, by using a zero-truncated poisson for predicting length of stay, we are taking into account that the predicted value should be at least 1. 
+ 
+ For the cost per day analysis, we believe we may not have seen much of a difference between the two techniques because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. 
 
 # Bibliography
 
