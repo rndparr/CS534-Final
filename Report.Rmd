@@ -72,12 +72,12 @@ spaMM.options('nb_cores' = future::availableCores() - 2)
 ## Miscellaneous Functions
 
 ```{r, other-functions, message = FALSE}
-report_table <- function(x, w = NULL, h = '500px', ec = NULL){
+report_table <- function(x, w = NULL, h = '500px', ec = NULL, rownames = FALSE){
   scroll_box(
     kable_paper(
       kable_styling(
         kbl(x, 
-          row.names = FALSE), 
+          row.names = rownames), 
         full_width = T, 
         position = 'center',
         bootstrap_options = c('striped', 'hover'),
@@ -195,9 +195,9 @@ report_table(mdc_codes,
 ```
 
 
-## Figures
+## Figures {.tabset}
 
-### Distribution of Length of Stay
+### LOS {-}
 
 Length of stay goes from 1 to 121 (previously 120+) but the majority of the data lies between 1 and 30. With the most patients having stayed 2 days. 
 
@@ -218,7 +218,7 @@ report_plot(
     scale_y_continuous(labels = scales::comma))
 ```
 
-### Length of Stay across Age Groups
+### LOS by Age {-}
 
 Median length of stay increases as age group increases. The interquartile range of length of stay also increases as age group increases.
 
@@ -236,7 +236,7 @@ ggplot(dat,
     limits = c(0, 20))
 ```
 
-### Average Length of Stay by MDC Code
+### Avg LOS by MDC {-}
 
 The longest average length of stay among MDC groups was the 0 MDC group which corresponds to Pre-MDC or Ungroupable. As discussed earlier, the Pre-MDC group is primarily composed of transplant patients which explains the longer average time spent as an inpatient.
 
@@ -254,13 +254,12 @@ report_plot(
     ylab('Average Length of Stay'))
 ```
 
-### Average Length of Stay by Severity of Illness 
+### Avg LOS by Severity {-}
 
 As severity of illness increases, average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
 
 ```{r, los-by-aprseverity, class.source = NULL, message = FALSE}
 report_plot(
-  # ggplot(subset(dat, !is.na(APR.Severity.of.Illness.Description)), 
   ggplot(dat,
     aes(
       x = APR.Severity.of.Illness.Description, 
@@ -274,7 +273,7 @@ report_plot(
     ylab('Average Length of Stay'))
 ```
 
-### Average Length of Stay by Facility Ownership Type
+### Avg LOS by Ownership {-}
 
 Ownership type was one of the variables merged from the second dataset which gave additional information about facility type. There is a clear distinction in mean length of stay between the different ownership types with the longest average length of stay being for a Public Benefit Corporation (PBC). A PBC is a type of for-profit entity. Municipality owned hospitals, which are run by the local government, have the second largest average length of stay 
 
@@ -306,7 +305,7 @@ ggplot(dat,
     limits = c(0, 20))
 ```
 
-### Average Length of Stay by Type of Facility 
+### Avg LOS by Type {-}
 
 The average length of stay is greater in hospitals than in Critical Access Hospitals. Critical Access Hospitals are rural hospitals overseen by the Centers for Medicare and Medicaid Services (CMS) that meet the following criteria: 25 or fewer acute care inpatient beds, at least 35 miles from the nearest hospital, keep the average length of stay for the year at 96 hours or less for acute care patients, and have emergency care services available 24/7. By keeping their status as a Critical Access Hospital, they receive certain benefits from CMS which would Critical Access Hopsitals to keep the length of stay lower in order to keep their status. [@ruralhealthinformationhubCriticalAccessHospitals2019].
 
@@ -323,7 +322,7 @@ ggplot(dat,
   ylab('Average Length of Stay')
 ```
 
-### Average Cost per Day by Type of Admission
+### Avg CPD by Admission {-}
 
 Cost per day is highest in patients with elective procedures and cases of trauma.
 
@@ -340,7 +339,7 @@ ggplot(dat,
   ylab('Average Cost per Day')
 ```
 
-### Average Cost per Day Across Age Groups
+### Avg CPD by Age {-}
 
 Average cost per day increased as age group increased with the highest average cost in the age group from 50 to 69. Surprisingly, average cost for those 70 or older was less than both age groups of 30 to 49 and 50 to 69.
 
@@ -357,7 +356,7 @@ ggplot(dat,
   ylab('Average Cost per day')
 ```
 
-### Average Cost per Day across MDC Codes
+### Avg CPD by MDC {-}
 
 Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8), Diseases and Disorders of the Female Reproductive System (MDC Code 13) had the highest average costs per day. 
 
@@ -385,22 +384,21 @@ report_plot(
     ylab('Average Cost per day'))
 ```
 
-### Average Cost per day by Facility Ownership Type
+### Avg CPD by Ownership {-}
 
 Municipality owned hospitals' cost per patient per day is at least $1000 more on average than the other four ownership types. 
 
 ```{r, cpd-owner-type, class.source = NULL, class.source = NULL, message = FALSE}
-# report_plot(
-#   ggplot(dat, 
-#     aes(x = Ownership.Type, 
-#       y = Cost.per.Day, 
-#       fill = Ownership.Type)) +
-#     stat_summary(fun = 'mean', 
-#       geom = 'bar') +
-#     theme(legend.position = 'none') +
-#     ggtitle('Average Cost per day by Ownership Type') +
-#     xlab('Ownership Type') +
-#     ylab('Average Cost per day'))
+  ggplot(dat, 
+    aes(x = Ownership.Type, 
+      y = Cost.per.Day, 
+      fill = Ownership.Type)) +
+    stat_summary(fun = 'mean', 
+      geom = 'bar') +
+    theme(legend.position = 'none') +
+    ggtitle('Average Cost per day by Ownership Type') +
+    xlab('Ownership Type') +
+    ylab('Average Cost per day')
 
 # aggregate(Cost.per.Day ~ Ownership.Type, data = dat, FUN = mean)
 # aes(tooltip = after_stat(count)),
@@ -431,39 +429,107 @@ Municipality owned hospitals' cost per patient per day is at least $1000 more on
 #     xlab('Ownership Type') +
 #     ylab('Average Cost per day'))
 
-report_plot(
-  ggplot(aggregate(Cost.per.Day ~ Ownership.Type, data = dat, FUN = mean), 
-    aes(x = Ownership.Type, 
-      y = Cost.per.Day, 
-      fill = Ownership.Type)) +
-  geom_col_interactive(aes(tooltip = Cost.per.Day)) +
-    theme(legend.position = 'none') +
-    ggtitle('Average Cost per day by Ownership Type') +
-    xlab('Ownership Type') +
-    ylab('Average Cost per day'))
+# report_plot(
+#   ggplot(aggregate(Cost.per.Day ~ Ownership.Type, data = dat, FUN = mean), 
+#     aes(x = Ownership.Type, 
+#       y = Cost.per.Day, 
+#       fill = Ownership.Type)) +
+#   geom_col_interactive(aes(tooltip = Cost.per.Day, data_id = Ownership.Type)) +
+#     theme(legend.position = 'none') +
+#     ggtitle('Average Cost per day by Ownership Type') +
+#     xlab('Ownership Type') +
+#     ylab('Average Cost per day'))
 ```
 
-## Data Filtering
 
-### Distribution of Birth Weight 
+***
+
+## Birth Weight 
 
 We chose to filter out observations that were related to pregnancy and newborn data as there are unique characteristics of their features. The birthweight feature, for example, was only reported for newborns. For all other observations, the birthweight was recorded as 0. 
 
 In the figure below, we see that over 2 million observations have birth weight equal to 0.
 
-```{r, birthweight, class.source = NULL, class.source = NULL, message = FALSE}
-ggplot(dat, 
-  aes(x = Birth.Weight)) +
-  geom_histogram(fill = '#69b3a2') +
-  ggtitle('Distribution of Birth Weight') +
-  xlab('Birth Weight (grams)') +
-  ylab('Frequency')
+```{r, birthweight, class.source = NULL, message = FALSE}
+# report_plot(
+#   ggplot(dat, aes(x = Birth.Weight)) + 
+#     geom_histogram_interactive( aes(tooltip = ..count..),
+#       fill = '#69b3a2', 
+#       alpha = 0.9) +
+#   ggtitle('Distribution of Birth Weight') +
+#   xlab('Birth Weight (grams)') +
+#   ylab('Frequency'))
+
+
+report_plot(
+  ggplot(dat) + 
+    geom_histogram_interactive(
+      aes(x = Birth.Weight, tooltip = ..count..),
+      binwidth = 1, 
+      fill = '#69b3a2', 
+      color = '#e9ecef', 
+      alpha = 0.9) +
+    ggtitle('Distribution of Birth Weight') +
+    xlab('Birth Weight (grams)') +
+    ylab('Frequency') + 
+    scale_y_continuous(labels = scales::comma))
 ```
 
-### Redacted Data for Observations Related to Abortion
+## Abortion Indicator
 
+Due to confidentiality concerns, some columns were censored if the discharge record for that observation contained any potential indication of abortion, including but not limited to: elective abortion procedures, miscarriages, ectopic pregnancies, etc.
 
+All observations with missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y'. 
+<!-- We found that 100% of missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y', meaning the discharge record had some mention of abortion.  -->The plot below shows the MDC codes that had observations where Abortion.Edit.Indicator was equal to 'Y'. The majority of these observations were when APR MDC Code was equal to 14 which corresponds to the MDC 'Pregnancy, Childbirth And Puerperium'. 
 
+```{r, abortion, class.source = NULL, message = FALSE}
+
+# report_plot(
+#   ggplot(dat, 
+#     aes(x = APR.MDC.Code, 
+#       y = Cost.per.Day,
+#       tooltip = APR.MDC.Description)) +
+#     geom_bar_interactive(stat = 'summary',
+#       fun = 'mean',
+#       fill = '#69b3a2') +
+#     ggtitle('Average Cost per day by APR MDC Code') +
+#     xlab('APR MDC Code') +
+#     ylab('Average Cost per day'))
+
+report_plot(
+ ggplot(subset(dat, dat$Abortion.Edit.Indicator == "Y"),
+   aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) +
+   geom_bar_interactive(
+      fill = '#69b3a2') +
+   ggtitle('Frequency of Observations Related to Abortion by MDC Code') +
+   xlab('APR MDC Code') +
+   ylab('Frequency') +
+   theme(legend.position = 'none') +
+   scale_y_continuous(labels = scales::comma))
+
+# report_plot(
+#  ggplot(subset(dat, dat$Abortion.Edit.Indicator == "Y"),
+#    aes(x = APR.MDC.Code,
+#      fill = Abortion.Edit.Indicator, tooltip = APR.MDC.Description)) +
+#    geom_bar_interactive() +
+#    ggtitle('Frequency of Observations Related to Abortion by MDC Code') +
+#    xlab('APR MDC Code') +
+#    ylab('Frequency') +
+#    theme(legend.position = 'none') +
+#    scale_y_continuous(labels = scales::comma))
+```
+
+## Data Filtering
+
+Rows meeting any of the following criteria were filtered:
+
+* APR.DRG.Code corresponding to a APR.DRG.Description containing OB-GYN-related terms
+* CCS.Diagnosis.Code corresponding to a CCS.Diagnosis.Description containing OB-GYN-related terms
+* APR.MDC.Code = 14 ['Pregnancy, Childbirth And Puerperium']
+* APR.MDC.Code = 15 ['Newborn And Other Neonates (Perinatal Period)']
+* Abortion.Edit.Indicator = 'Y'
+* Type.of.Admission = 'Newborn'
+* Birth.Weight > 0
 
 
 ```{r, filtering}
@@ -533,10 +599,10 @@ dat <- droplevels(dat)
 # any is medicare is 929721
  -->
 
-## Figures
+## Figures {.tabset}
  <!-- using subset of data (Only Medicare) -->
 
-### Distribution of Length of Stay for Patients with Medicare
+### LOS {-}
 
 The distribution of length of stay in the subset with only patients with Medicare resembles the overall distribution, but the largest frequency of length of stay in this subset is 3 days.
 
@@ -557,7 +623,7 @@ report_plot(
     scale_y_continuous(labels = scales::comma))
 ```
 
-### Frequency of MDC Code in Medicare Patients
+### MDC {-}
 
 The greatest number of medicare patients were admitted due to Diseases and Disorders of the Circulatory System (MDC Code 5) then  Diseases and Disorders of the Respiratory System (MDC Code 4) and Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8).
 
@@ -574,7 +640,7 @@ report_plot(ggplot(dat, aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) +
 ```
 
 
-### Frequency of Individuals with Medicare by Age Group
+### Age {-}
 
 As expected, the majority of patients with Medicare are 70 or older and also many in the 50 to 69 age group.
 
@@ -591,6 +657,8 @@ report_plot(
     ylab('Frequency') +
     scale_y_continuous(labels = scales::comma))
 ```
+
+***
 
 # Analysis 
 
@@ -785,9 +853,9 @@ eval_LOS_Hier <- evaluate_model(Hierarchical_LOS, test, 'Length.of.Stay')
 ```
 
 ### Model Comparison
-```{r, model-comp, eval = FALSE}
+```{r, los-model-comp, eval = FALSE}
 compare <- data.frame(matrix(, nrow = 3, ncol = 5))
-colnames(compare) <- c('', 'Linear Regression', 'Poisson', 'Zero-Truncated Poisson''Hierarchical Zero-Truncated Poisson')
+colnames(compare) <- c('', 'Linear Regression', 'Poisson', 'Zero-Truncated Poisson','Hierarchical Zero-Truncated Poisson')
 
 #Factor
 compare[1,1] <- 'Mean Absolute Error'
@@ -848,7 +916,7 @@ R_squared2 = round(summary(linearReg_Cost)$r.squared, 4)
 
 7 coefficients were not estimated due to singularities similarly to the results from the length of stay analysis. 
 
-The output shows a $R^2$ of `r R_squared2` on the training data. 
+<!-- The output shows a $R^2$ of `r #R_squared2` on the training data.  ***-->
 
 ```{r, cpd-lin-reg-eval, eval = FALSE}
 
@@ -884,7 +952,7 @@ eval_Cost_Hier <- evaluate_model(Hierarchical_cost, test, 'Cost.per.Day')
 ```
 
 ### Model Comparison
-```{r, model-comp, eval = FALSE}
+```{r, cpd-model-comp, eval = FALSE}
 compare2 <- data.frame(matrix(, nrow = 3, ncol = 3))
 colnames(compare2) <- c('', 'Linear Regression', 'Hierarchical Linear Regression')
 
