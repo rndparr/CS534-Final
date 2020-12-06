@@ -96,7 +96,7 @@ report_plot <- function(x){
     opts_sizing(rescale = TRUE), 
     opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
     opts_hover(css = 'cursor:pointer;'),
-    sizingPolicy(defaultWidth = '700px', defaultHeight = '300px'))
+    sizingPolicy(defaultWidth = '100%', defaultHeight = '300px'))
 }
 
 ```
@@ -112,7 +112,7 @@ dat <- read.csv('input/Hospital_Inpatient_Discharges__SPARCS_De-Identified___201
   na.strings = c('NA', ''))
 ```
 
-In addition to the columns found in the Kaggle dataset [@almeida2015DeidentifiedNY2018], we will also be using the New York State Department of Health's "Health Facility General Information" dataset [@newyorkstatedepartmentofhealthHealthFacilityGeneral2014] in order to incorporate Facility Type and Ownership Type variables into our analysis by matching on Facility ID.
+In addition to the columns found in the Kaggle dataset [@almeida2015DeidentifiedNY2018], we will also be using the New York State Department of Health's "Health Facility General Information" dataset [@newyorkstatedepartmentofhealthHealthFacilityGeneral2014] in order to incorporate `Facility.Type` and `Ownership.Type` variables into our analysis by matching on `Facility.ID`.
 
 ```{r, data-import-healthfacility}
 # read in facility id and description columns from facility information dataset
@@ -158,11 +158,14 @@ dat$APR.Severity.of.Illness.Description <- factor(
   levels = c('Minor', 'Moderate', 'Major', 'Extreme'))
 
 # If Facility.Type and Ownership.Type are NA, then make it it's own category of Missing
-dat$Facility.Type = factor(dat$Facility.Type, levels=c(levels(dat$Facility.Type), 'Missing'))
-dat[which(is.na(dat$Facility.Type)), 'Facility.Type'] <- 'Missing'
+# dat$Facility.Type = factor(dat$Facility.Type, levels=c(levels(dat$Facility.Type), 'Missing'))
+# dat[which(is.na(dat$Facility.Type)), 'Facility.Type'] <- 'Missing'
+dat$Facility.Type = factor(dat$Facility.Type, exclude = NULL)
 
-dat$Ownership.Type = factor(dat$Ownership.Type, levels=c(levels(dat$Ownership.Type), 'Missing'))
-dat[which(is.na(dat$Ownership.Type)), 'Ownership.Type'] <- 'Missing'
+# dat$Ownership.Type = factor(dat$Ownership.Type, levels=c(levels(dat$Ownership.Type), 'Missing'))
+# dat[which(is.na(dat$Ownership.Type)), 'Ownership.Type'] <- 'Missing'
+dat$Ownership.Type = factor(dat$Ownership.Type, exclude = NULL)
+
 
 # Remove columns:
 ## discharge year is 2015 for all rows
@@ -566,7 +569,7 @@ report_plot(
       fill = '#69b3a2', 
       color = '#e9ecef', 
       alpha = 0.9) +
-    ggtitle('Distribution of Length of Stay') +
+    ggtitle('Distribution of Length of Stay in Medicare Patients') +
     xlab('Length of Stay') +
     ylab('Frequency') + 
     scale_x_continuous(breaks = c(1, 10, 20, 30, 40), 
@@ -586,7 +589,7 @@ report_plot(ggplot(dat, aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) +
       fill = '#69b3a2', 
       color = '#e9ecef', 
       alpha = 0.9) +
-    ggtitle('Frequency of APR MDC Code in Medicare Patients') +
+    ggtitle('APR MDC Code Frequency in Medicare Patients') +
     xlab('APR MDC Code') +
     ylab('Frequency'))
 
@@ -606,7 +609,7 @@ report_plot(
       fill = '#69b3a2',
       color = '#e9ecef', 
       alpha = 0.9) +
-    ggtitle('Frequency of Individuals with Medicare by Age Group') +
+    ggtitle('Age Group Frequency in Medicare Patients') +
     xlab('Medicare') +
     ylab('Frequency') +
     scale_y_continuous(labels = scales::comma))
@@ -731,20 +734,21 @@ We wanted to focus our efforts in predicting length of stay through regression m
 
 
 ```{r, lin-reg}
-linearReg <- lm(Length.of.Stay ~ Age.Group
-                + Gender
-                + Race
-                + Ethnicity
-                + Type.of.Admission
-                + APR.MDC.Code
-                + APR.Severity.of.Illness.Code
-                + APR.Risk.of.Mortality
-                + Ownership.Type
-                + Facility.Type
-                + Emergency.Department.Indicator
-                + Health.Service.Area
-                + Hospital.County 
-              , data = train)
+linearReg <- lm(
+  Length.of.Stay ~ Age.Group
+    + Gender
+    + Race
+    + Ethnicity
+    + Type.of.Admission
+    + APR.MDC.Code
+    + APR.Severity.of.Illness.Code
+    + APR.Risk.of.Mortality
+    + Ownership.Type
+    + Facility.Type
+    + Emergency.Department.Indicator
+    + Health.Service.Area
+    + Hospital.County,
+  data = train)
 
 # Evaluate linear regression model
 eval_LOS_linear <- evaluate_model(linearReg, test, 'Length.of.Stay')
@@ -762,21 +766,22 @@ The $R^2$ value for the simple linear regression on the training data is `r roun
 When you look at thet possible values of length of stay, you see that length of stay can only be integer values greater than 1. Linear regression, on the other hand, will give you continuous values from -infinty to infinity. Therefore, our next step was to model length of stay as a Poisson regression which models count data. This still isn't quite the right model as a normal Poisson can take on values of 0. Since this is inpatient data, there will never be a patient who has a length of stay of 0.
 
 ```{r, pois-reg}
-Poi <- glm(Length.of.Stay ~  Age.Group
-                + Gender
-                + Race
-                + Ethnicity
-                + Type.of.Admission
-                + APR.MDC.Code
-                + APR.Severity.of.Illness.Code
-                + APR.Risk.of.Mortality
-                + Ownership.Type
-                + Facility.Type
-                + Emergency.Department.Indicator
-                + Health.Service.Area
-                + Hospital.County, 
-                family = Poisson(link = 'log'),
-                data = train)
+Poi <- glm(
+  Length.of.Stay ~  Age.Group
+    + Gender
+    + Race
+    + Ethnicity
+    + Type.of.Admission
+    + APR.MDC.Code
+    + APR.Severity.of.Illness.Code
+    + APR.Risk.of.Mortality
+    + Ownership.Type
+    + Facility.Type
+    + Emergency.Department.Indicator
+    + Health.Service.Area
+    + Hospital.County, 
+  family = Poisson(link = 'log'),
+  data = train)
 
 # Evaluate Poisson model
 eval_LOS_Poi <- evaluate_model(Poi, test, 'Length.of.Stay')
@@ -793,21 +798,22 @@ Next we look at the Zero-Truncated Poisson model. This is a modification of the 
 
 ```{r, ztpois-reg, eval = FALSE}
 # GLM with zero-truncated Poisson
-ZeroTruncated_Poi <- glm(Length.of.Stay ~ Age.Group
-                + Gender
-                + Race
-                + Ethnicity
-                + Type.of.Admission
-                + APR.MDC.Code
-                + APR.Severity.of.Illness.Code
-                + APR.Risk.of.Mortality
-                + Ownership.Type
-                + Facility.Type
-                + Emergency.Department.Indicator
-                + Health.Service.Area
-                + Hospital.County, 
-	              family = Tpoisson(link = 'log'),
-	              data = train)
+ZeroTruncated_Poi <- glm(
+  Length.of.Stay ~ Age.Group
+    + Gender
+    + Race
+    + Ethnicity
+    + Type.of.Admission
+    + APR.MDC.Code
+    + APR.Severity.of.Illness.Code
+    + APR.Risk.of.Mortality
+    + Ownership.Type
+    + Facility.Type
+    + Emergency.Department.Indicator
+    + Health.Service.Area
+    + Hospital.County, 
+  family = Tpoisson(link = 'log'),
+  data = train)
 
 # Evaluate Zero-Truncated Poisson model
 eval_LOS_ZeroTruncPoi <- evaluate_model(ZeroTruncated_Poi, test, 'Length.of.Stay')
@@ -822,20 +828,21 @@ Lastly, we fit a hierarchical zero-truncted poisson model. If you look at the va
 
 ```{r, hztpois-reg, eval = FALSE}
 # GLM with zero-truncated Poisson, nesting
-Hierarchical_LOS <- HLfit(Length.of.Stay ~ Age.Group
-                + Gender
-                + Race
-                + Ethnicity
-                + Type.of.Admission
-                + APR.MDC.Code
-                + APR.Severity.of.Illness.Code
-                + APR.Risk.of.Mortality
-                + Ownership.Type
-                + Facility.Type
-                + Emergency.Department.Indicator
-		            + (1 | Hospital.County / Health.Service.Area),
-	              family = Tpoisson(link = 'log'), 
-	              data = train)
+Hierarchical_LOS <- HLfit(
+  Length.of.Stay ~ Age.Group
+    + Gender
+    + Race
+    + Ethnicity
+    + Type.of.Admission
+    + APR.MDC.Code
+    + APR.Severity.of.Illness.Code
+    + APR.Risk.of.Mortality
+    + Ownership.Type
+    + Facility.Type
+    + Emergency.Department.Indicator
+    + (1 | Hospital.County / Health.Service.Area),
+  family = Tpoisson(link = 'log'), 
+  data = train)
 
 # Evaluate Hierarchical LOS model
 eval_LOS_Hier <- evaluate_model(Hierarchical_LOS, test, 'Length.of.Stay')
@@ -895,20 +902,21 @@ In predicting cost per day, we focused on comparing simple linear regression res
 
 ```{r, cpd-lin-reg, eval = FALSE}
 # Linear regression for cost per day
-linearReg_Cost <- lm(Cost.per.Day ~ Age.Group
-                + Gender
-                + Race
-                + Ethnicity
-                + Type.of.Admission
-                + APR.MDC.Code
-                + APR.Severity.of.Illness.Code
-                + APR.Risk.of.Mortality
-                + Ownership.Type
-                + Facility.Type
-                + Emergency.Department.Indicator
-                + Health.Service.Area
-                + Hospital.County
-                , data = train)
+linearReg_Cost <- lm(
+  Cost.per.Day ~ Age.Group
+    + Gender
+    + Race
+    + Ethnicity
+    + Type.of.Admission
+    + APR.MDC.Code
+    + APR.Severity.of.Illness.Code
+    + APR.Risk.of.Mortality
+    + Ownership.Type
+    + Facility.Type
+    + Emergency.Department.Indicator
+    + Health.Service.Area
+    + Hospital.County, 
+  data = train)
 
 # Evaluate Linear regression cost per day model
 eval_Cost_linear <- evaluate_model(linearReg_Cost, test, 'Cost.per.Day')
@@ -926,19 +934,20 @@ summary(linearReg_Cost)
 ### Hierarchical Linear Regression
 
 ```{r, cpd-hlin-reg, eval = FALSE}
-Hierarchical_cost <- lmer(Cost.per.Day ~  Age.Group
-                + Gender
-                + Race
-                + Ethnicity
-                + Type.of.Admission
-                + APR.MDC.Code
-                + APR.Severity.of.Illness.Code
-                + APR.Risk.of.Mortality
-                + Ownership.Type
-                + Facility.Type
-                + Emergency.Department.Indicator
-                + (1 | Hospital.County / Health.Service.Area), 
-                data = train)
+Hierarchical_cost <- lmer(
+  Cost.per.Day ~  Age.Group
+    + Gender
+    + Race
+    + Ethnicity
+    + Type.of.Admission
+    + APR.MDC.Code
+    + APR.Severity.of.Illness.Code
+    + APR.Risk.of.Mortality
+    + Ownership.Type
+    + Facility.Type
+    + Emergency.Department.Indicator
+    + (1 | Hospital.County / Health.Service.Area), 
+  data = train)
 
 # Evaluation Hierarchical model for cost per day
 eval_Cost_Hier <- evaluate_model(Hierarchical_cost, test, 'Cost.per.Day')
