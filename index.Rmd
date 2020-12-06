@@ -1,0 +1,955 @@
+---
+title: 'CS534 Final Report'
+subtitle: 'Predicting Patient Length of Stay and Cost per Day'
+author: 'Courtney Gale & Randy Parrish'
+date: '12/04/2020'
+output: 
+  html_document:
+    number_sections: true
+    fig_caption: true
+    toc: true
+    toc_depth: 2
+    toc_float: 
+      collapsed: false
+      smooth_scroll: false
+    fig_width: 7
+    fig_height: 4.5
+    pandoc_args: [
+      '--bibliography', 'input/biblio.bib',
+      '--csl', 'input/citestyle.csl',
+      '--metadata', 'link-citations=true'
+      ]
+    code_folding: hide
+    theme: lumen
+    highlight: tango
+    # keep_md: true
+---
+
+
+# Introduction
+Predicting patient outcomes early in the admission process is an important part of hospital management [@tierneyPredictingInpatientCosts1995;@tsaiLengthHospitalStay2016]. Estimating a patient's length of stay, for instance, assists in logistics such as allocation of hospital resources [@tsaiLengthHospitalStay2016]. The ability to predict patient-specific healthcare costs helps us gain understanding of the situations that lead to high healthcare costs and can inform future decisions in preventative care, which has been shown to be one of the best ways to decrease healthcare cost [@yangMachineLearningApproaches2018].  
+
+For our final project we will be using the Statewide Planning and Research Cooperative System (SPARCS) Inpatient De-identified File dataset (originally provided the New York State Department of Health [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017]) as it appears on Kaggle to predict length of stay (LOS) in days, a metric used to assess hospital efficiency and quality of care [@oecdAverageLengthStay2011;@robinsonPredictionHospitalLength1966;@tsaiLengthHospitalStay2016], and patient cost per day. The full dataset contains nearly 2.35 million de-identified observations and 37 features about hospital inpatient discharge data for 2015.
+
+
+# Set Up
+
+```{css, echo = FALSE}
+pre {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+pre[class] {
+  max-height: 600px;
+}
+```
+
+```{r, setup, include = FALSE, echo = FALSE}
+knitr::opts_chunk$set(
+  cache = TRUE, 
+  # cache = FALSE, 
+  cache.lazy = FALSE, 
+  # cache.lazy = TRUE, 
+  error = TRUE, 
+  warning = FALSE,
+  class.source = 'fold-show',
+  tidy = TRUE,
+  fig.align = 'center')
+```
+
+## Libraries
+
+```{r, load-libraries, message = FALSE}
+library(ggplot2)
+library(ggiraph)
+library(kableExtra)
+library(lme4)
+library(spaMM)
+spaMM.options('nb_cores' = future::availableCores() - 2)
+```
+
+## Miscellaneous Functions
+
+```{r, other-functions, message = FALSE}
+report_table <- function(x, w = NULL, h = '500px', ec = NULL, rownames = FALSE){
+  scroll_box(
+    kable_paper(
+      kable_styling(
+        kbl(x, 
+          row.names = rownames), 
+        full_width = T, 
+        position = 'center',
+        bootstrap_options = c('striped', 'hover'),
+        fixed_thead = T), 
+      full_width = T), 
+    fixed_thead = T, 
+    height = h,
+    width = w,
+    extra_css = ec)
+}
+
+report_plot <- function(x){
+  girafe_options(
+    girafe(code = print(x)),
+    opts_sizing(rescale = TRUE), 
+    opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
+    opts_hover(css = 'cursor:pointer;'),
+    sizingPolicy(defaultWidth = '800px', defaultHeight = '494px'))
+}
+
+```
+
+# Data Import
+
+```{r, data-import}
+# Import the data
+dat <- read.csv('input/Hospital_Inpatient_Discharges__SPARCS_De-Identified___2015.csv', 
+  colClasses = c(
+    rep('factor', 10), 'character', rep('factor', 21), 
+    'numeric', rep('factor', 2), rep('character', 2)),
+  na.strings = c('NA', ''))
+```
+
+In addition to the columns found in the Kaggle dataset, we will also be using the New York State Department of Health's "Health Facility General Information" dataset [@newyorkstatedepartmentofhealthHealthFacilityGeneral2014] in order to incorporate Facility Type and Ownership Type variables into our analysis by matching on Facility ID.
+
+```{r, data-import-healthfacility}
+# read in facility id and description columns from facility information dataset
+dat_hf <- read.csv('input/Health_Facility_General_Information.csv',
+  colClasses =  c('factor', rep('NULL', 2), 'factor', rep('NULL', 28), 'factor', rep('NULL', 3)),
+  skipNul = TRUE)
+
+# remove duplicate rows
+dat_hf <- dat_hf[!duplicated(dat_hf), ]
+
+# rename columns
+colnames(dat_hf) <- c('Facility.Id', 'Facility.Type', 'Ownership.Type')
+
+# merge datasets by Facility Id
+dat <- droplevels(merge(dat, dat_hf, by = 'Facility.Id', all.x = TRUE, sort = FALSE))
+```
+
+```{r, data-display-raw, class.source = NULL}
+report_table(head(dat, 50))
+```
+
+## Data Cleaning
+```{r, data-clean}
+# rename Zip.Code...3.digits
+colnames(dat)[which(colnames(dat) == 'Zip.Code...3.digits')] <- 'Zip'
+
+# make Length.of.Stay numeric
+dat[which(dat$Length.of.Stay == '120 +'), 'Length.of.Stay'] <- '121'
+dat$Length.of.Stay <- as.numeric(dat$Length.of.Stay)
+
+# Remove dollar sign from Total Costs and Total Charges and make numeric
+dat$Total.Charges <- as.numeric(substring(dat$Total.Charges, 2))
+dat$Total.Costs <- as.numeric(substring(dat$Total.Costs, 2))
+
+# Create cost per day variable
+dat$Cost.per.Day <- dat$Total.Costs / dat$Length.of.Stay
+
+# Re-order factors
+dat$APR.MDC.Code <- factor(dat$APR.MDC.Code, levels = as.character(0:25))
+
+dat$APR.Severity.of.Illness.Description <- factor(
+  dat$APR.Severity.of.Illness.Description, 
+  levels = c('Minor', 'Moderate', 'Major', 'Extreme'))
+
+# Remove columns:
+## discharge year is 2015 for all rows
+## provider license numbers are many-leveled factors unused in analysis
+## patient disposition information is known at end of hospital stay, not at admission
+dat <- dat[, which(!(colnames(dat) %in% c(
+  'Discharge.Year',
+  'Operating.Certificate.Number',
+  'Attending.Provider.License.Number',
+  'Operating.Provider.License.Number', 
+  'Other.Provider.License.Number',
+  'Patient.Disposition')))]
+```
+
+```{r, data-clean-old}
+# Look at makeup of dataset
+summary(dat)
+```
+
+```{r, data-display, class.source = NULL}
+report_table(head(dat, 50))
+```
+
+
+# Preliminary Data Exploration
+
+## MDC Codes
+
+The following codes are Major Diagnostic Categories (MDC) that generally correspond to a major organ system. The original 1-23 MDC codes are grouped by primary diagnosis. In 1986 MDC codes were expanded to include MDC Codes 0 (Pre-MDC), 24 (Human Immunodeficiency Virus or HIV), and 25 (Multiple Significant Trauma), the latter of which, unlike codes 1-23, are based on both the primary and secondary diagnosis. <!-- To receive an MDC code of 24, a patient must either have a primary diagnosis of HIV with a secondary diagnosis of an HIV infection complication or the primary diagnosis could be the HIV complication with the secondary diagnosis being  an HIV infection. Patient diagnosis of MDC code 25 is based on having two or more significant traumas to different systems of the body. --> Patients are assigned Pre-MDC when their Diagnosis-Related Group (DRG) is based on a procedure, mostly transplants (heart, liver, intestinal, bone marrow, etc.) and tracheostomies in this dataset, instead of a primary diagnosis and are grouped separately due to the very resource intensive nature of these procedures which may be used to treat numerous different diagnoses across MDCs [@centersformedicaremedicaidservicesICD10CMPCSMSDRG2020].
+
+```{r, mdc-codes, class.source = NULL}
+# get row of first instance of each APR.MDC.Code in order
+mdc_codes <- dat[match(levels(dat$APR.MDC.Code), dat$APR.MDC.Code), c('APR.MDC.Code', 'APR.MDC.Description')]
+
+report_table(mdc_codes, 
+  w = '650px', 
+  ec = 'position: center; display: block; margin: auto;')
+```
+
+
+## Figures {.tabset}
+
+### LOS {-}
+
+Length of stay goes from 1 to 121 (previously 120+) but the majority of the data lies between 1 and 30. With the most patients having stayed 2 days. 
+
+```{r, los-dist, class.source = NULL, message = FALSE}
+report_plot(
+  ggplot(dat) + 
+    geom_histogram_interactive(
+      aes(x = Length.of.Stay, tooltip = ..count..),
+      binwidth = 1, 
+      fill = '#69b3a2', 
+      color = '#e9ecef', 
+      alpha = 0.9) +
+    ggtitle('Distribution of Length of Stay') +
+    xlab('Length of Stay') +
+    ylab('Frequency') + 
+    scale_x_continuous(breaks = c(1, 10, 20, 30, 40), 
+      limits = c(0,40)) +
+    scale_y_continuous(labels = scales::comma))
+```
+
+***
+
+### LOS by Age {-}
+
+Median length of stay increases as age group increases. The interquartile range of length of stay also increases as age group increases.
+
+```{r, los-by-age, class.source = NULL, message = FALSE}
+ggplot(dat, 
+  aes(x = Age.Group, 
+    y = Length.of.Stay, 
+    fill = Age.Group)) + 
+  geom_boxplot() +
+  theme(legend.position = 'none') +
+  ggtitle('Length of Stay by Age Group') +
+  xlab('Age Group') +
+  ylab('Length of Stay') +
+  scale_y_continuous(breaks = c(1, 10, 20), 
+    limits = c(0, 20))
+```
+
+***
+
+
+### Avg LOS by MDC {-}
+
+The longest average length of stay among MDC groups was the 0 MDC group which corresponds to Pre-MDC or Ungroupable. As discussed earlier, the Pre-MDC group is primarily composed of transplant patients which explains the longer average time spent as an inpatient.
+
+```{r, los-avg, class.source = NULL, class.source = NULL, message = FALSE}
+report_plot(
+  ggplot(dat, 
+    aes(x = APR.MDC.Code, 
+      y = Length.of.Stay,
+      tooltip = APR.MDC.Description)) +
+    geom_bar_interactive(stat = 'summary', 
+      fun = 'mean',
+      fill = '#69b3a2') +
+    ggtitle('Average Length of Stay by APR MDC Code') +
+    xlab('APR MDC Code') +
+    ylab('Average Length of Stay'))
+```
+
+***
+
+### Avg LOS by Severity {-}
+
+As severity of illness increases, average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
+
+```{r, los-by-aprseverity, class.source = NULL, message = FALSE}
+report_plot(
+  ggplot(dat,
+    aes(
+      x = APR.Severity.of.Illness.Description, 
+      y = Length.of.Stay, 
+      fill = APR.Severity.of.Illness.Description)) + 
+    geom_bar_interactive(stat = 'summary', 
+      fun = 'mean') +
+    theme(legend.position = 'none') +
+    ggtitle('Length of Stay by Severity of Illness') +
+    xlab('Severity of Illness') +
+    ylab('Average Length of Stay'))
+```
+
+***
+
+### Avg LOS by Ownership {-}
+
+Ownership type was one of the variables merged from the second dataset which gave additional information about facility type. There is a clear distinction in mean length of stay between the different ownership types with the longest average length of stay being for a Public Benefit Corporation (PBC). A PBC is a type of for-profit entity. Municipality owned hospitals, which are run by the local government, have the second largest average length of stay 
+
+Similarly, the boxplot shows a higher median length of stay for PBC and a larger spread.
+
+```{r, los-by-ownership, class.source = NULL, message = FALSE}
+ggplot(subset(dat, !is.na(Ownership.Type)), 
+  aes(
+    x = reorder(Ownership.Type, Length.of.Stay), 
+    y = Length.of.Stay, 
+    fill = Ownership.Type)) + 
+  stat_summary(fun = 'mean', 
+    geom = 'bar') +
+  theme(legend.position = 'none') +
+  ggtitle('Length of Stay by Ownership Type') +
+  xlab('Ownership Type') +
+  ylab('Average Length of Stay')
+
+ggplot(dat, 
+  aes(x = Ownership.Type, 
+    y = Length.of.Stay, 
+    fill = Ownership.Type)) + 
+  geom_boxplot() +
+  theme(legend.position = 'none') +
+  ggtitle('Length of Stay by Ownership Type') +
+  xlab('Ownership Type') +
+  ylab('Length of Stay') +
+  scale_y_continuous(breaks = c(1, 10, 20), 
+    limits = c(0, 20))
+```
+
+***
+
+### Avg LOS by Type {-}
+
+The average length of stay is greater in hospitals than in Critical Access Hospitals. Critical Access Hospitals are rural hospitals overseen by the Centers for Medicare and Medicaid Services (CMS) that meet the following criteria: 25 or fewer acute care inpatient beds, at least 35 miles from the nearest hospital, keep the average length of stay for the year at 96 hours or less for acute care patients, and have emergency care services available 24/7. By keeping their status as a Critical Access Hospital, they receive certain benefits from CMS which would Critical Access Hopsitals to keep the length of stay lower in order to keep their status. [@ruralhealthinformationhubCriticalAccessHospitals2019].
+
+```{r, los-facility-type, class.source = NULL, class.source = NULL, message = FALSE}
+ggplot(dat, 
+  aes(x = Facility.Type, 
+    y = Length.of.Stay, 
+    fill = Facility.Type)) +
+  stat_summary(fun = 'mean', 
+    geom = 'bar') +
+  theme(legend.position = 'none') +
+  ggtitle('Average Length of stay by Facility Type') +
+  xlab('Facility Type') +
+  ylab('Average Length of Stay')
+```
+
+***
+
+### Avg CPD by Admission {-}
+
+Cost per day is highest in patients with elective procedures and cases of trauma.
+
+```{r, cpd-by-typeadmit, class.source = NULL, class.source = NULL, message = FALSE}
+ggplot(dat, 
+    aes(x = Type.of.Admission, 
+      y = Cost.per.Day, 
+      fill = Type.of.Admission)) + 
+  stat_summary(fun = 'mean', 
+    geom = 'bar') +
+  theme(legend.position = 'none') +
+  ggtitle('Cost per Day by Type of Admission') +
+  xlab('Admission Type') +
+  ylab('Average Cost per Day')
+```
+
+***
+
+### Avg CPD by Age {-}
+
+Average cost per day increased as age group increased with the highest average cost in the age group from 50 to 69. Surprisingly, average cost for those 70 or older was less than both age groups of 30 to 49 and 50 to 69.
+
+```{r, cpd-by-age, class.source = NULL, class.source = NULL, message = FALSE}
+ggplot(dat, 
+    aes(x = Age.Group, 
+      y = Cost.per.Day, 
+      fill = Age.Group)) +
+  stat_summary(fun = 'mean', 
+    geom = 'bar') +
+  theme(legend.position = 'none') +
+  ggtitle('Cost per day by Age Group') +
+  xlab('Age Group') +
+  ylab('Average Cost per day')
+```
+
+***
+
+### Avg CPD by MDC {-}
+
+Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8), Diseases and Disorders of the Female Reproductive System (MDC Code 13) had the highest average costs per day. 
+
+```{r, cpd-avg, class.source = NULL, class.source = NULL, message = FALSE}
+report_plot(
+  ggplot(dat, 
+    aes(x = APR.MDC.Code, 
+      y = Cost.per.Day,
+      tooltip = APR.MDC.Description)) +
+    geom_bar_interactive(stat = 'summary',
+      fun = 'mean',
+      fill = '#69b3a2') +
+    ggtitle('Average Cost per day by APR MDC Code') +
+    xlab('APR MDC Code') +
+    ylab('Average Cost per day'))
+```
+
+***
+
+### Avg CPD by Ownership {-}
+
+Municipality owned hospitals' cost per patient per day is at least $1000 more on average than the other four ownership types. 
+
+```{r, cpd-owner-type, class.source = NULL, class.source = NULL, message = FALSE}
+  ggplot(dat, 
+    aes(x = Ownership.Type, 
+      y = Cost.per.Day, 
+      fill = Ownership.Type)) +
+    stat_summary(fun = 'mean', 
+      geom = 'bar') +
+    theme(legend.position = 'none') +
+    ggtitle('Average Cost per day by Ownership Type') +
+    xlab('Ownership Type') +
+    ylab('Average Cost per day')
+```
+
+***
+
+## Birth Weight 
+
+We chose to filter out observations that were related to pregnancy and newborn data as there are unique characteristics of their features. The birthweight feature, for example, was only reported for newborns. For all other observations, the birthweight was recorded as 0. 
+
+In the figure below, we see that over 2 million observations have birth weight equal to 0.
+
+```{r, birthweight, class.source = NULL, message = FALSE, cache = FALSE}
+# report_plot(
+#   ggplot(dat, aes(x = Birth.Weight)) + 
+#     geom_histogram_interactive( aes(tooltip = ..count..),
+#       fill = '#69b3a2', 
+#       alpha = 0.9) +
+#   ggtitle('Distribution of Birth Weight') +
+#   xlab('Birth Weight (grams)') +
+#   ylab('Frequency'))
+
+
+report_plot(
+  ggplot(dat) + 
+    geom_histogram_interactive(
+      aes(x = Birth.Weight, tooltip = ..count..),
+      binwidth = 1, 
+      fill = '#69b3a2', 
+      color = '#e9ecef', 
+      alpha = 0.9) +
+    ggtitle('Distribution of Birth Weight') +
+    xlab('Birth Weight (grams)') +
+    ylab('Frequency'))
+```
+
+## Abortion Indicator
+
+Due to confidentiality concerns, some columns were censored if the discharge record for that observation contained any potential indication of abortion, including but not limited to: elective abortion procedures, miscarriages, ectopic pregnancies, etc.
+
+All observations with missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y'. 
+<!-- We found that 100% of missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y', meaning the discharge record had some mention of abortion.  -->The plot below shows the MDC codes that had observations where Abortion.Edit.Indicator was equal to 'Y'. The majority of these observations were when APR MDC Code was equal to 14 which corresponds to the MDC 'Pregnancy, Childbirth And Puerperium'. 
+
+```{r, abortion, class.source = NULL, message = FALSE}
+report_plot(
+ ggplot(subset(dat, dat$Abortion.Edit.Indicator == "Y"),
+   aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) +
+   geom_bar_interactive(
+      fill = '#69b3a2') +
+   ggtitle('Frequency of Observations Related to Abortion by MDC Code') +
+   xlab('APR MDC Code') +
+   ylab('Frequency') +
+   theme(legend.position = 'none') +
+   scale_y_continuous(labels = scales::comma))
+```
+
+## Data Filtering
+
+Rows meeting any of the following criteria were filtered:
+
+* APR.DRG.Code corresponding to a APR.DRG.Description containing OB-GYN-related terms
+* CCS.Diagnosis.Code corresponding to a CCS.Diagnosis.Description containing OB-GYN-related terms
+* APR.MDC.Code = 14 ['Pregnancy, Childbirth And Puerperium']
+* APR.MDC.Code = 15 ['Newborn And Other Neonates (Perinatal Period)']
+* Abortion.Edit.Indicator = 'Y'
+* Type.of.Admission = 'Newborn'
+* Birth.Weight > 0
+
+
+```{r, filtering}
+# get unique codes, descriptions
+aprdrg <- unique(dat[,c('APR.DRG.Code','APR.DRG.Description')])
+aprdrg <- aprdrg[order(aprdrg$APR.DRG.Code),]
+rownames(aprdrg) <- NULL
+
+ccs <- unique(dat[,c('CCS.Diagnosis.Code','CCS.Diagnosis.Description')])
+ccs <- ccs[order(ccs$CCS.Diagnosis.Code),]
+rownames(ccs) <- NULL
+
+# terms for filtering out OB-related
+obgyn_terms <- paste0(
+  c('abortion', 'amniot', 'birth', 'C-section', 'delivery', 'fetal', 'fetopelvic', 'labor', 'liveborn', 'malposition', 'natal', 'neonat', 'obstetric', 'OB-related', 'partum', 'pregnancy', 'umbilical cord complication'),
+  collapse = '|')
+exclude_terms <- paste0(
+  c('non-obstetric', 'except in labor'),
+  collapse = '|')
+
+filter_obgyn <- function(x){
+  return(
+    grep(exclude_terms, 
+      grep(obgyn_terms, x, ignore.case = TRUE, value = TRUE),
+      ignore.case = TRUE, 
+      value = TRUE, 
+      invert = TRUE))
+}
+
+# get APR.DRG.Code values to filter out
+aprdrg_obgyn_codes <- aprdrg[aprdrg$APR.DRG.Description %in% filter_obgyn(aprdrg$APR.DRG.Description), 'APR.DRG.Code']
+
+# get CCS.Diagnosis.Code values to filter out
+ccs_obgyn_codes <- ccs[ccs$CCS.Diagnosis.Description %in% filter_obgyn(ccs$CCS.Diagnosis.Description), 'CCS.Diagnosis.Code']
+
+# filter dat to include only non-obgyn data, non-neonate data
+obgyn_rows <- with(dat, which(
+  CCS.Diagnosis.Code %in% ccs_obgyn_codes | 
+  APR.DRG.Code %in% aprdrg_obgyn_codes | 
+  APR.MDC.Code == 14 | 
+  APR.MDC.Code == 15 | 
+  Abortion.Edit.Indicator == 'Y' | 
+  Type.of.Admission == 'Newborn' | 
+  Birth.Weight > 0))
+dat <- dat[-obgyn_rows, ]
+
+# remove columns
+dat <- dat[, which(!(colnames(dat) %in% c('Abortion.Edit.Indicator','Birth.Weight')))]
+```
+
+After filtering, there there are `r nrow(dat)` observations remaining.
+
+# Medicare Patient Data
+
+Due to the amount of computing power that it would take to analyze the whole dataset, we chose to subset the data by if any of a patient's payment types (primary, secondary, or tertiary) were Medicare. 874,388 patients had Medicare as their primary payment type, and 55,333 additional patients had Medicare as either their secondary or tertiary payment type for a total of 929,721 patients.
+
+```{r, medicare-subset}
+# Subset to only medicare patients
+medicare_rows <- with(dat, which(Payment.Typology.1 == 'Medicare' | Payment.Typology.2 == 'Medicare' | Payment.Typology.3 == 'Medicare'))
+dat <- dat[medicare_rows, ]
+
+# drop unused levels
+dat <- droplevels(dat)
+```
+<!-- 
+# just type1 medicare is  874388 rows
+# any is medicare is 929721
+ -->
+
+## Figures {.tabset}
+ <!-- using subset of data (Only Medicare) -->
+
+### LOS {-}
+
+The distribution of length of stay in the subset with only patients with Medicare resembles the overall distribution, but the largest frequency of length of stay in this subset is 3 days.
+
+```{r, los-dist-medicare, class.source = NULL, message = FALSE}
+report_plot(
+  ggplot(dat) + 
+    geom_histogram_interactive(
+      aes(x = Length.of.Stay, tooltip = after_stat(count)),
+      binwidth = 1, 
+      fill = '#69b3a2', 
+      color = '#e9ecef', 
+      alpha = 0.9) +
+    ggtitle('Distribution of Length of Stay') +
+    xlab('Length of Stay') +
+    ylab('Frequency') + 
+    scale_x_continuous(breaks = c(1, 10, 20, 30, 40), 
+      limits = c(0,40)) +
+    scale_y_continuous(labels = scales::comma))
+```
+
+***
+
+### MDC {-}
+
+The greatest number of medicare patients were admitted due to Diseases and Disorders of the Circulatory System (MDC Code 5) then  Diseases and Disorders of the Respiratory System (MDC Code 4) and Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8).
+
+```{r, mdccode-medicare, class.source = NULL, message = FALSE}
+report_plot(ggplot(dat, aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) + 
+    geom_bar_interactive(
+      fill = '#69b3a2', 
+      color = '#e9ecef', 
+      alpha = 0.9) +
+    ggtitle('Frequency of APR MDC Code in Medicare Patients') +
+    xlab('APR MDC Code') +
+    ylab('Frequency'))
+
+```
+
+***
+
+### Age {-}
+
+As expected, the majority of patients with Medicare are 70 or older and also many in the 50 to 69 age group.
+
+```{r, age-medicare, class.source = NULL, message = FALSE}
+report_plot(
+  ggplot(dat, aes(x = Age.Group)) + 
+    geom_bar_interactive(
+      aes(tooltip = after_stat(count)),
+      fill = '#69b3a2',
+      color = '#e9ecef', 
+      alpha = 0.9) +
+    ggtitle('Frequency of Individuals with Medicare by Age Group') +
+    xlab('Medicare') +
+    ylab('Frequency') +
+    scale_y_continuous(labels = scales::comma))
+```
+
+***
+
+# Analysis 
+
+```{r, test-train}
+# Split train and test set 
+set.seed(123)
+train_rows <- caret::createDataPartition(
+  y = dat$Length.of.Stay, 
+  p = 0.7, 
+  list = FALSE)
+train <- dat[train_rows,]
+test <- dat[-train_rows,]
+```
+
+## Evaluation Metrics
+
+We will be using the same evaluation metrics used in the literature for the assessment of similar length of stay prediction models:
+$R^2$ [@tierneyPredictingInpatientCosts1995], mean absolute error (MAE) [@tsaiLengthHospitalStay2016;@tierneyPredictingInpatientCosts1995], mean relative error (MRE) [@tsaiLengthHospitalStay2016], and root mean squared error (RMSE) [@tsaiLengthHospitalStay2016].
+
+$$ MAE = \frac {\sum_{i = 1}^{n} |\hat y_i - y_i|}{n} $$
+
+$$ MRE = \frac {\sum_{i = 1}^{n} (|\hat y_i - y_i|/y_i)}{n}$$
+
+$$ RMSE = \sqrt\frac {\sum_{i = 1}^{n} (\hat y_i - y_i)^2}{n}$$
+where $\hat y_i$ is the predicted value for length of stay or cost per dayand $y_i$ is the actual value for length of stay or cost per day. 
+
+```{r, error-funtions}
+# Error functions
+MAE <- function(pred, actual){mean(abs(actual - pred))}
+MRE <- function(pred, actual){mean(abs(actual - pred) / actual)}
+RMSE <- function(pred, actual){sqrt(mean((actual - pred)^2))}
+
+evaluate_model <- function(model, test, response){
+
+  actual <- test[[response]]
+  pred <- predict(model, test)
+
+  # Remove rows when response == 0; MRE = infinity for those observations
+  if(any(test[[response]] == 0)) {
+    test_mre <- test[!test[[response]] == 0, ]
+    pred_mre <- predict(model, test_mre)
+    actual_mre <- test_mre[[response]]
+  } else {
+    pred_mre <- pred
+    actual_mre <- actual
+  }
+
+  return(c('Mean Absolute Error' = round(MAE(pred, actual), digits = 2), 
+    'Mean Relative Error' = round(MRE(pred_mre, actual_mre), digits = 2), 
+    'Root Mean Squared Error' = round(RMSE(pred, actual), digits = 2)))
+}
+```
+
+
+## Length of Stay
+
+In the following models, we consider the following variables to predict length of stay.
+
+<!-- - Age.Group: Age in years at time of discharge grouped into 0 to 17, 18 - 29, 30 - 49, 50 - 69, 70+
+- Gender: Male, Female, Unknown
+- Race: Black/African American, Multi, Other Race, Unknown, White. 
+- Ethnicity: Spanish/Hispanic Origin, Not of Spanish/Hispanic Origin, Multi, Unknown.
+- Type.of.Admission: Elective, Emergency, Newborn, Not Available, Trauma, Urgent.
+- APR.MDC.Code: 0-25
+- APR.Severity.of.Illness.Code: Minor (1), Moderate (2), Major (3) , Extreme (4). 
+- APR.Risk.of.Mortality: Minor (1), Moderate (2), Major (3) , Extreme (4).
+- Ownership.Type: County, Municipality, Not for Profit Corporation, Public Benefit Corporation, State
+- Facility.Type: Hospital, Primary Care Hospital - Critical Access Hospital
+- Emergency.Department.Indicator: If the record contained an Emergency Department revenue code of 045X, the indicator is set to "Y", otherwise it will be “N”.
+- Health.Service.Area: 8 service areas represented
+- Hospital.County : 57 Hospital counties represented
+
+ -->
+
+***
+
+| Column                          | Description                                                                                                                   |
+|---------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| Age.Group                       | Age in years at time of discharge grouped into 0 to 17, 18 to 29, 30 to 49, 50 to 69, 70+                                    |
+| Gender                          | Male, Female, Unknown                                                                                                        |
+| Race                            | Black/African American, Multi, Other Race, Unknown, White.                                                                   |
+| Ethnicity                       | Spanish/Hispanic Origin, Not of Spanish/Hispanic Origin, Multi, Unknown.                                                     |
+| Type.of.Admission               | Elective, Emergency, Newborn, Not Available, Trauma, Urgent.                                                                 |
+| APR.MDC.Code                    | 0-25                                                                                                                         |
+| APR.Severity.of.Illness.Code    | Minor (1), Moderate (2), Major (3) , Extreme (4).                                                                            |
+| APR.Risk.of.Mortality           | Minor (1), Moderate (2), Major (3) , Extreme (4).                                                                            |
+| Ownership.Type                  | County, Municipality, Not for Profit Corporation, Public Benefit Corporation, State                                          |
+| Facility.Type                   | Hospital, Primary Care Hospital - Critical Access Hospital                                                                   |
+| Emergency.Department.Indicator  | If the record contained an Emergency Department revenue code of 045X, the indicator is set to "Y", otherwise it will be “N”. |
+| Health.Service.Area             | 8 service areas represented                                                                                                  |
+| Hospital.County                 | 57 Hospital counties represented     
+
+***
+
+All of these variables are recorded at admission so no future information such as Total Cost is included in the model.
+
+### Linear Regression
+We wanted to focus our efforts in predicting length of stay through regression methods and not classification methods because knowing the exact number of days a patient would need to stay would be overall more useful than knowing a range of days a patient may stay. We start with a simple linear regression as our base model although we acknowledge that fundamentally, this is not the proper model that we want to use to model length of stay. 
+
+
+```{r, lin-reg}
+linearReg <- lm(Length.of.Stay ~ Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
+                + Emergency.Department.Indicator
+                + Health.Service.Area
+                + Hospital.County 
+              , data = train)
+summary(linearReg)
+
+R_squared = round(summary(linearReg)$r.squared, 4)
+
+# Evaluate linear regression model
+eval_LOS_linear <- evaluate_model(linearReg, test, 'Length.of.Stay')
+```
+
+Note that 7 coefficients are not defined due to singularities. The undefined factors are all from within the hospital county variable. We believe that this is due to the nested structure of the data. Hospital county can directly predict hospital service area because the hospital county variable is nested within the hospital service area. This is another reason that simple linear regression is not the best model for this data.
+
+The $R^2$ value for the simple linear regression on the training data is `r R_squared`. 
+
+
+### Poisson Model
+When you look at thet possible values of length of stay, you see that length of stay can only be integer values greater than 1. Linear regression, on the other hand, will give you continuous values from -infinty to infinity. Therefore, our next step was to model length of stay as a Poisson regression which models count data. This still isn't quite the right model as a normal Poisson can take on values of 0. Since this is inpatient data, there will never be a patient who has a length of stay of 0.
+
+```{r, pois-reg}
+Poi <- glm(Length.of.Stay ~  Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
+                + Emergency.Department.Indicator
+                + Health.Service.Area
+                + Hospital.County, 
+                family = Poisson(link = 'log'),
+                data = train)
+summary(Poi)
+
+# Evaluate Poisson model
+eval_LOS_Poi <- evaluate_model(Poi, test, 'Length.of.Stay')
+```
+
+Note, the same hospital county coefficients were not estimated in using the Poisson model either. 
+
+
+### Zero-Truncated Poisson Model
+Next we look at the Zero-Truncated Poisson model. This is a modification of the Poisson model, and it can only take integer values from 1 to infinity. Therfore, this model is more appropriate to model length of stay because it will never take 0 values.
+
+```{r, ztpois-reg, eval = FALSE}
+# GLM with zero-truncated Poisson
+ZeroTruncated_Poi <- glm(Length.of.Stay ~ Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
+                + Emergency.Department.Indicator
+                + Health.Service.Area
+                + Hospital.County, 
+	              family = Tpoisson(link = 'log'),
+	              data = train)
+summary(ZeroTruncated_Poi)
+
+# Evaluate Zero-Truncated Poisson model
+eval_LOS_ZeroTruncPoi <- evaluate_model(ZeroTruncated_Poi, test, 'Length.of.Stay')
+```
+
+
+### Hierarchical Zero-Truncated Poisson Model
+Lastly, we fit a hierarchical zero-truncted poisson model. If you look at the variables for Health Serivce Area and Hospital County, you can see that these are nested varaibles. For example, specific hospital counties will only occur in specific health areas. By modeling length of stay as a multi-level model, we can take into account the area-level and county-level effects on length of stay by accounting for unexplained variation in hospital service areas and hospital counties. 
+
+```{r, hztpois-reg, eval = FALSE}
+# GLM with zero-truncated Poisson, nesting
+Hierarchical_LOS <- HLfit(Length.of.Stay ~ Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
+                + Emergency.Department.Indicator
+		            + (1 | Hospital.County / Health.Service.Area),
+	              family = Tpoisson(link = 'log'), 
+	              data = train)
+summary(Hierarchical_LOS, details=TRUE, max.print=99999999)
+
+# Evaluate Hierarchical LOS model
+eval_LOS_Hier <- evaluate_model(Hierarchical_LOS, test, 'Length.of.Stay')
+```
+
+
+### Model Comparison
+```{r, los-model-comp, eval = FALSE}
+# compare <- data.frame(matrix(, nrow = 3, ncol = 5))
+# colnames(compare) <- c('', 'Linear Regression', 'Poisson', 'Zero-Truncated Poisson','Hierarchical Zero-Truncated Poisson')
+
+# #Factor
+# compare[1,1] <- 'Mean Absolute Error'
+# compare[2,1] <- 'Mean Relative Error'
+# compare[3,1] <- 'Root Mean Squared Error'
+
+
+LOS_compare <- cbind(
+'Linear Regression' = eval_LOS_linear,
+'Poisson Model' = eval_LOS_Poi,
+'ZTPoisson Model' = eval_LOS_ZeroTruncPoi,
+'Hierarchical ZTPoisson' = eval_LOS_Hier)
+
+# #Linear Regression
+# compare[1,2] <- eval_LOS_linear[1]
+# compare[2,2] <- eval_LOS_linear[2]
+# compare[3,2] <- eval_LOS_linear[3]
+  
+# # Poisson
+# compare[1,3] <- eval_LOS_Poi[1]
+# compare[2,3] <- eval_LOS_Poi[2]
+# compare[3,3] <- eval_LOS_Poi[3]
+
+# # Zero-Truncated Poisson
+# compare[1,4] <- eval_LOS_ZeroTruncPoi[1]
+# compare[2,4] <- eval_LOS_ZeroTruncPoi[2]
+# compare[3,4] <- eval_LOS_ZeroTruncPoi[3]
+
+# # Hierarchical Zero Truncated Poisson
+# compare[1,5] <- eval_LOS_Hier[1]
+# compare[2,5] <- eval_LOS_Hier[2]
+# compare[3,5] <- eval_LOS_Hier[3]
+
+
+# Print table
+report_table(LOS_compare, rownames = TRUE)
+```
+
+
+## Cost per Day
+
+### Linear Regression
+In predicting cost per day, we focused on comparing simple linear regression results to the results for a hierarchical linear model accounting for the variance in serivce area and hospital county. We predicted that we would see an improvement in performance by using a more complicated and computationally heavy approach using the hierarchical structure since it would account for the structure of the data. 
+
+```{r, cpd-lin-reg, eval = FALSE}
+# Linear regression for cost per day
+linearReg_Cost <- lm(Cost.per.Day ~ Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
+                + Emergency.Department.Indicator
+                + Health.Service.Area
+                + Hospital.County
+                , data = train)
+summary(linearReg_Cost)
+
+R_squared2 = round(summary(linearReg_Cost)$r.squared, 4)
+
+# Evaluate Linear regression cost per day model
+eval_Cost_linear <- evaluate_model(linearReg_Cost, test, 'Cost.per.Day')
+```
+
+7 coefficients were not estimated due to singularities similarly to the results from the length of stay analysis. 
+
+<!-- The output shows a $R^2$ of `r #R_squared2` on the training data.  ***-->
+
+
+
+### Hierarchical Linear Regression
+
+```{r, cpd-hlin-reg, eval = FALSE}
+Hierarchical_cost <- lmer(Cost.per.Day ~  Age.Group
+                + Gender
+                + Race
+                + Ethnicity
+                + Type.of.Admission
+                + APR.MDC.Code
+                + APR.Severity.of.Illness.Code
+                + APR.Risk.of.Mortality
+                + Ownership.Type
+                + Facility.Type
+                + Emergency.Department.Indicator
+                + (1 | Hospital.County / Health.Service.Area), 
+                data = train)
+
+summary(Hierarchical_cost)
+
+# Evaluation Hierarchical model for cost per day
+eval_Cost_Hier <- evaluate_model(Hierarchical_cost, test, 'Cost.per.Day')
+```
+
+### Model Comparison
+```{r, cpd-model-comp, eval = FALSE}
+# compare2 <- data.frame(matrix(, nrow = 3, ncol = 3))
+# colnames(compare2) <- c('', 'Linear Regression', 'Hierarchical Linear Regression')
+
+
+# #Factor
+# compare2[1,1] <- 'Mean Absolute Error'
+# compare2[2,1] <- 'Mean Relative Error'
+# compare2[3,1] <- 'Root Mean Squared Error'
+
+# #Linear Regression
+# compare2[1,2] <- eval_Cost_linear[1]
+# compare2[2,2] <- eval_Cost_linear[2]
+# compare2[3,2] <- eval_Cost_linear[3]
+  
+# # Hierarchical Linear Regression
+# compare2[1,3] <- eval_Cost_Hier[1]
+# compare2[2,3] <- eval_Cost_Hier[2]
+# compare2[3,3] <- eval_Cost_Hier[3]
+
+CPD_compare = cbind('Linear Regression' = eval_Cost_linear, 
+  'Hierarchical Linear Regression' = eval_Cost_Hier)
+
+# Print table
+report_table(CPD_compare, rownames = TRUE)
+```
+
+# Discussion
+
+We did not see a large increase in predictive power as we expected by using the hierarchical linear model in either of the two predictions. The evaluation metrics between the two methods are very similar indicating that there wasn't much to gain in performance by using the more computationally intensive method.However, the reward you do get for running the hierarchical model is that it better represents the structure of the data, and it knows how to treat the nested variables. Since linear regression does not have the knowledge of the correlation between the nested variables, it ends up not being able to estimate certain coefficients and you get the warning "prediction from a rank-deficient fit may be misleading" when trying to predict using the linear regression model. Thus, it is better to take into account the hierarchical structure of the results to be able to trust the results of your predictions.
+
+ If we wanted to use a model to predict length of stay, in practice we don’t want the model to predict -1.5 because that would not be a realistic prediction. At least, by using a zero-truncated poisson for predicting length of stay, we are taking into account that the predicted value should be at least 1. 
+ 
+ For the cost per day analysis, we believe we may not have seen much of a difference between the two techniques because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. 
+
+# Bibliography
+
