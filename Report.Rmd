@@ -22,7 +22,7 @@ output:
     code_folding: hide
     theme: lumen
     highlight: tango
-    keep_md: true
+    # keep_md: true
 ---
 
 
@@ -49,8 +49,8 @@ pre[class] {
 knitr::opts_chunk$set(
   cache = TRUE, 
   # cache = FALSE, 
-  cache.lazy = FALSE, 
-  # cache.lazy = TRUE, 
+  # cache.lazy = FALSE, 
+  cache.lazy = TRUE, 
   error = TRUE, 
   warning = FALSE,
   class.source = 'fold-show',
@@ -94,7 +94,8 @@ report_plot <- function(x){
     girafe(code = print(x)),
     opts_sizing(rescale = TRUE), 
     opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
-    opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
+    # opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;')
+    opts_hover(css = 'cursor:pointer;'))
 }
 
 ```
@@ -110,7 +111,7 @@ dat <- read.csv('input/Hospital_Inpatient_Discharges__SPARCS_De-Identified___201
   na.strings = c('NA', ''))
 ```
 
-We will also be incorporating two more variables into our analysis from a second dataset called Health Facility General Information which is also provided by the New York State Department of Health. We can match the Facility IDs between the two datasets and be able to use two additional variables in the analysis, Facility Type and Ownership Type [@newyorkstatedepartmentofhealthHealthFacilityGeneral2014].
+In addition to the columns found in the Kaggle dataset, we will also be using the New York State Department of Health's "Health Facility General Information" dataset [@newyorkstatedepartmentofhealthHealthFacilityGeneral2014] in order to incorporate Facility Type and Ownership Type variables into our analysis by matching on Facility ID.
 
 ```{r, data-import-healthfacility}
 # read in facility id and description columns from facility information dataset
@@ -148,8 +149,6 @@ dat$Total.Costs <- as.numeric(substring(dat$Total.Costs, 2))
 # Create cost per day variable
 dat$Cost.per.Day <- dat$Total.Costs / dat$Length.of.Stay
 
-head(dat[, c('APR.MDC.Code', 'APR.MDC.Description')])
-
 # Re-order factors
 dat$APR.MDC.Code <- factor(dat$APR.MDC.Code, levels = as.character(0:25))
 
@@ -170,7 +169,6 @@ dat <- dat[, which(!(colnames(dat) %in% c(
   'Patient.Disposition')))]
 ```
 
-
 ```{r, data-clean-old}
 # Look at makeup of dataset
 summary(dat)
@@ -185,11 +183,11 @@ report_table(head(dat, 50))
 
 ## MDC Codes
 
-The following codes are Major Diagnostic Categories (MDC) that generally correspond to a major organ system. The original 1-23 MDC codes are grouped by primary diagnosis. In 1986, they expanded the MDC codes to include MDC Codes 0 (Pre-MDC), 24 (Human Immunodeficiency Virus or HIV), and 25 (Multiple Significant Trauma). MDC codes 24 and 25 are based on both the primary and secondary diagnosis unlike MDC codes 1-23. To receive an MDC code of 24, a patient must either have a primary diagnosis of HIV with a secondary diagnosis of an HIV infection complication or the primary diagnosis could be the HIV complication with the secondary diagnosis being  an HIV infection. Patient diagnosis of MDC code 25 is based on having two or more significant traumas to different systems of the body. Patients are assigned as Pre-MDC when the first step in assigning the Diagnosis-Related Group (DRG) is based on procedure instead of primary diagnosis. Patients in the Pre-MDC group are mostly transplant patients (heart, liver, intestinal, bone marrow, etc.) and patients receiving tracheostomies. These are grouped separately as these are very resource intensive procedures and the procedures may be done for diagnoses across many different MDCs.  [@centersformedicaremedicaidservicesICD10CMPCSMSDRG2020].
+The following codes are Major Diagnostic Categories (MDC) that generally correspond to a major organ system. The original 1-23 MDC codes are grouped by primary diagnosis. In 1986 MDC codes were expanded to include MDC Codes 0 (Pre-MDC), 24 (Human Immunodeficiency Virus or HIV), and 25 (Multiple Significant Trauma), the latter of which, unlike codes 1-23, are based on both the primary and secondary diagnosis. <!-- To receive an MDC code of 24, a patient must either have a primary diagnosis of HIV with a secondary diagnosis of an HIV infection complication or the primary diagnosis could be the HIV complication with the secondary diagnosis being  an HIV infection. Patient diagnosis of MDC code 25 is based on having two or more significant traumas to different systems of the body. --> Patients are assigned Pre-MDC when their Diagnosis-Related Group (DRG) is based on a procedure, mostly transplants (heart, liver, intestinal, bone marrow, etc.) and tracheostomies in this dataset, instead of a primary diagnosis and are grouped separately due to the very resource intensive nature of these procedures which may be used to treat numerous different diagnoses across MDCs [@centersformedicaremedicaidservicesICD10CMPCSMSDRG2020].
 
 ```{r, mdc-codes, class.source = NULL}
-mdc_codes <- data.frame('MDC Code' = as.character(0:25), 
-  'Description' = c('Pre-MDC or Ungroupable', 'Diseases and Disorders of the Nervous System', 'Diseases and Disorders of the Eye', 'Ear, Nose, Mouth, Throat, and Craniofacial Diseases and Disorders', 'Diseases and Disorders of the Respiratory System', 'Diseases and Disorders of the Circulatory System', 'Diseases and Disorders of the Digestive System', 'Diseases and Disorders of the Hepatobiliary System and Pancreas', 'Diseases and Disorders of the Musculoskeletal System and Connective Tissue', 'Diseases and Disorders of the Skin, Subcutaneous Tissue and Breast', 'Endocrine, Nutritional and Metabolic Diseases and Disorders', 'Diseases and Disorders of the Kidney and Urinary Tract', 'Diseases and Disorders of the Male Reproductive System', 'Diseases and Disorders of the Female Reproductive System', 'Pregnancy, Childbirth and the Puerperium', 'Newborns and Other Neonates with Conditions Originating in the Perinatal Period', 'Diseases and Disorders of Blood, Blood Forming Organs and Immunological Disorders', 'Lymphatic, Hematopoietic, Other Malignancies, Chemotherapy and Radiotherapy', 'Infectious and Parasitic Diseases, Systemic or Unspecified Sites', 'Mental Diseases and Disorders', 'Alcohol/Drug Use and Alcohol/Drug Induced Organic Mental Disorders', 'Poisonings, Toxic Effects, Other Injuries and Other Complications of Treatment', 'Burns', 'Rehabilitation, Aftercare, Other Factors Influencing Health Status and Other Health Service Contacts', 'Human Immunodeficiency Virus (HIV) Infections', 'Multiple Significant Trauma'))
+# get row of first instance of each APR.MDC.Code in order
+mdc_codes <- dat[match(levels(dat$APR.MDC.Code), dat$APR.MDC.Code), c('APR.MDC.Code', 'APR.MDC.Description')]
 
 report_table(mdc_codes, 
   w = '650px', 
@@ -202,17 +200,20 @@ report_table(mdc_codes,
 Length of stay goes from 1 to 121 (previously 120+) but the majority of the data lies between 1 and 30. With the most patients having stayed 2 days. 
 
 ```{r, los-dist, class.source = NULL, message = FALSE}
-ggplot(dat, aes(x = Length.of.Stay)) + 
-  geom_histogram(binwidth = 1, 
-    fill = '#69b3a2', 
-    color = '#e9ecef', 
-    alpha = 0.9) +
-  ggtitle('Distribution of Length of Stay') +
-  xlab('Length of Stay') +
-  ylab('Frequency') + 
-  scale_x_continuous(breaks = c(1, 10, 20, 30, 40), 
-    limits = c(0,40)) +
-  scale_y_continuous(labels = scales::comma)
+report_plot(
+  ggplot(dat) + 
+    geom_histogram_interactive(
+      aes(x = Length.of.Stay, tooltip = ..count..),
+      binwidth = 1, 
+      fill = '#69b3a2', 
+      color = '#e9ecef', 
+      alpha = 0.9) +
+    ggtitle('Distribution of Length of Stay') +
+    xlab('Length of Stay') +
+    ylab('Frequency') + 
+    scale_x_continuous(breaks = c(1, 10, 20, 30, 40), 
+      limits = c(0,40)) +
+    scale_y_continuous(labels = scales::comma))
 ```
 
 Median length of stay increases as age group increases. The interquartile range of length of stay also increases as age group increases.
@@ -234,42 +235,6 @@ ggplot(dat,
 The longest average length of stay among MDC groups was the 0 MDC group which corresponds to Pre-MDC or Ungroupable. As discussed earlier, the Pre-MDC group is primarily composed of transplant patients which explains the longer average time spent as an inpatient.
 
 ```{r, los-avg, class.source = NULL, class.source = NULL, message = FALSE}
-# ggplot(dat, 
-#   aes(x = APR.MDC.Code, 
-#     y = Length.of.Stay,
-#     tooltip = APR.MDC.Description)) +
-#   stat_summary(fun = 'mean', 
-#     geom = 'bar', 
-#     fill = '#69b3a2') +
-#   ggtitle('Average Length of Stay by APR MDC Code') +
-#   xlab('APR MDC Code') +
-#   ylab('Average Length of Stay')
-# los_avg_mdc <- ggplot(dat, 
-#   aes(x = APR.MDC.Code, 
-#     y = Length.of.Stay,
-#     tooltip = APR.MDC.Description)) +
-#   geom_bar_interactive(stat = 'summary', 
-#     fun = 'mean',
-#     fill = '#69b3a2') +
-#   ggtitle('Average Length of Stay by APR MDC Code') +
-#   xlab('APR MDC Code') +
-#   ylab('Average Length of Stay')
-# girafe_options(
-#   girafe(code = 
-#     print(ggplot(dat, 
-#       aes(x = APR.MDC.Code, 
-#         y = Length.of.Stay,
-#         tooltip = APR.MDC.Description)) +
-#       geom_bar_interactive(stat = 'summary', 
-#         fun = 'mean',
-#         fill = '#69b3a2') +
-#       ggtitle('Average Length of Stay by APR MDC Code') +
-#       xlab('APR MDC Code') +
-#       ylab('Average Length of Stay'))),
-#   opts_sizing(rescale = TRUE), 
-#   opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
-#   opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
-
 report_plot(
   ggplot(dat, 
     aes(x = APR.MDC.Code, 
@@ -286,17 +251,19 @@ report_plot(
 As severity of illness increases, average length of stay increases. Cases labeled as extreme stay for an average of 15 days.
 
 ```{r, los-by-aprseverity, class.source = NULL, message = FALSE}
-ggplot(subset(dat, !is.na(APR.Severity.of.Illness.Description)), 
-  aes(
-    x = reorder(APR.Severity.of.Illness.Description, Length.of.Stay), 
-    y = Length.of.Stay, 
-    fill = APR.Severity.of.Illness.Description)) + 
-  stat_summary(fun = 'mean', 
-    geom = 'bar') +
-  theme(legend.position = 'none') +
-  ggtitle('Length of Stay by Severity of Illness') +
-  xlab('Severity of Illness') +
-  ylab('Average Length of Stay')
+report_plot(
+  # ggplot(subset(dat, !is.na(APR.Severity.of.Illness.Description)), 
+  ggplot(dat,
+    aes(
+      x = APR.Severity.of.Illness.Description, 
+      y = Length.of.Stay, 
+      fill = APR.Severity.of.Illness.Description)) + 
+    geom_bar_interactive(stat = 'summary', 
+      fun = 'mean') +
+    theme(legend.position = 'none') +
+    ggtitle('Length of Stay by Severity of Illness') +
+    xlab('Severity of Illness') +
+    ylab('Average Length of Stay'))
 ```
 
 
@@ -388,44 +355,12 @@ Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases a
 #   xlab('APR MDC Code') +
 #   ylab('Average Cost per day')
 
-# girafe_options(
-#   girafe(code = 
-#     print(ggplot(dat, 
-#       aes(x = APR.MDC.Code, 
-#         y = Length.of.Stay,
-#         tooltip = APR.MDC.Description)) +
-#       geom_bar_interactive(stat = 'summary', 
-#         fun = 'mean',
-#         fill = '#69b3a2') +
-#       ggtitle('Average Length of Stay by APR MDC Code') +
-#       xlab('APR MDC Code') +
-#       ylab('Average Length of Stay'))),
-#   opts_sizing(rescale = TRUE), 
-#   opts_tooltip(opacity = .8, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
-#   opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
-
-# girafe_options(
-#   girafe(code = print(
-#     ggplot(dat, 
-#       aes(x = APR.MDC.Code, 
-#         y = Cost.per.Day,
-#         tooltip = APR.MDC.Description)) +
-#       geom_bar_interactive(stat = 'summary', 
-#         fun = 'mean',
-#         fill = '#69b3a2') +
-#       ggtitle('Average Cost per day by APR MDC Code') +
-#       xlab('APR MDC Code') +
-#       ylab('Average Cost per day'))),
-#   opts_sizing(rescale = TRUE), 
-#   opts_tooltip(opacity = .9, css = 'background-color:gray;color:white;padding:2px;border-radius:2px;'),
-#   opts_hover(css = 'fill:#1279BF;stroke:#1279BF;cursor:pointer;stroke-width:1;'))
-
 report_plot(
   ggplot(dat, 
     aes(x = APR.MDC.Code, 
       y = Cost.per.Day,
       tooltip = APR.MDC.Description)) +
-    geom_bar_interactive(stat = 'summary', 
+    geom_bar_interactive(stat = 'summary',
       fun = 'mean',
       fill = '#69b3a2') +
     ggtitle('Average Cost per day by APR MDC Code') +
@@ -436,28 +371,72 @@ report_plot(
 Municipality owned hospitals' cost per patient per day is at least $1000 more on average than the other four ownership types. 
 
 ```{r, cpd-owner-type, class.source = NULL, class.source = NULL, message = FALSE}
-ggplot(dat, 
-  aes(x = Ownership.Type, 
-    y = Cost.per.Day, 
-    fill = Ownership.Type)) +
-  stat_summary(fun = 'mean', 
-    geom = 'bar') +
-  theme(legend.position = 'none') +
-  ggtitle('Average Cost per day by Ownership Type') +
-  xlab('Ownership Type') +
-  ylab('Average Cost per day')
+# report_plot(
+#   ggplot(dat, 
+#     aes(x = Ownership.Type, 
+#       y = Cost.per.Day, 
+#       fill = Ownership.Type)) +
+#     stat_summary(fun = 'mean', 
+#       geom = 'bar') +
+#     theme(legend.position = 'none') +
+#     ggtitle('Average Cost per day by Ownership Type') +
+#     xlab('Ownership Type') +
+#     ylab('Average Cost per day'))
+
+# aggregate(Cost.per.Day ~ Ownership.Type, data = dat, FUN = mean)
+# aes(tooltip = after_stat(count)),
+# report_plot(
+#   ggplot(aggregate(Cost.per.Day ~ Ownership.Type, data = dat, FUN = mean), 
+#     aes(x = Ownership.Type, 
+#       y = Cost.per.Day, 
+#       fill = Ownership.Type)) +
+#   geom_bar_interactive(stat = 'summary',
+#     fun = 'mean',
+#     aes(tooltip = ..count..)) +
+#     theme(legend.position = 'none') +
+#     ggtitle('Average Cost per day by Ownership Type') +
+#     xlab('Ownership Type') +
+#     ylab('Average Cost per day'))
+
+# report_plot(
+#   ggplot(aggregate(Cost.per.Day ~ Ownership.Type, data = dat, FUN = mean), 
+#     aes(x = Ownership.Type, 
+#       y = Cost.per.Day, 
+#       fill = Ownership.Type)) +
+#   geom_bar_interactive(
+#     stat = 'summary',
+#     fun = 'mean',
+#     aes(tooltip = after_stat(count))) +
+#     theme(legend.position = 'none') +
+#     ggtitle('Average Cost per day by Ownership Type') +
+#     xlab('Ownership Type') +
+#     ylab('Average Cost per day'))
+
+report_plot(
+  ggplot(aggregate(Cost.per.Day ~ Ownership.Type, data = dat, FUN = mean), 
+    aes(x = Ownership.Type, 
+      y = Cost.per.Day, 
+      fill = Ownership.Type)) +
+  geom_col_interactive(aes(tooltip = Cost.per.Day)) +
+    theme(legend.position = 'none') +
+    ggtitle('Average Cost per day by Ownership Type') +
+    xlab('Ownership Type') +
+    ylab('Average Cost per day'))
 ```
 
 ## Data Filtering
 
 We chose to filter out observations that were related to pregnancy and newborn data as there are unique characteristics of their features. The birthweight feature, for example, was only reported for newborns. For all other observations, the birthweight was recorded as 0. With pregnancy related variables, some observations had a lot of missing data due to confidentiality issues in cases that may have been related to abortion (i.e. abortion procedure, miscarriage, ectopic pregnancy, etc.). Due to these unique characteritics of this data, we decided to filter out these observations.
 
-Rows meeting the following criteria were filtered 
+Rows meeting any of the following criteria were filtered:
 
-APR.MDC.Code = 14 ['Pregnancy, Childbirth And Puerperium']
-APR.MDC.Code = 15 ['Newborn And Other Neonates (Perinatal Period)']
-Abortion.Edit.Indicator = 'Y'
-Type.of.Admission = 'Newborn'
+* APR.DRG.Code corresponding to a APR.DRG.Description containing OB-GYN-related terms
+* CCS.Diagnosis.Code corresponding to a CCS.Diagnosis.Description containing OB-GYN-related terms
+* APR.MDC.Code = 14 ['Pregnancy, Childbirth And Puerperium']
+* APR.MDC.Code = 15 ['Newborn And Other Neonates (Perinatal Period)']
+* Abortion.Edit.Indicator = 'Y'
+* Type.of.Admission = 'Newborn'
+* Birth.Weight > 0
 
 ```{r, filtering}
 # get unique codes, descriptions
@@ -531,24 +510,25 @@ dat <- droplevels(dat)
 The distribution of length of stay in the subset with only patients with Medicare resembles the overall distribution, but the largest frequency of length of stay in this subset is 3 days.
 
 ```{r, los-dist-medicare, class.source = NULL, message = FALSE}
-ggplot(dat, aes(x = Length.of.Stay)) + 
-  geom_histogram(
-    binwidth = 1, 
-    fill = '#69b3a2', 
-    color = '#e9ecef', 
-    alpha = 0.9) +
-  ggtitle('Distribution of Length of Stay') +
-  xlab('Length of Stay') +
-  ylab('Frequency') + 
-  scale_x_continuous(
-    breaks = c(1, 10, 20, 30, 40), 
-    limits = c(0, 40)) +
-  scale_y_continuous(labels = scales::comma)
+report_plot(
+  ggplot(dat) + 
+    geom_histogram_interactive(
+      aes(x = Length.of.Stay, tooltip = after_stat(count)),
+      binwidth = 1, 
+      fill = '#69b3a2', 
+      color = '#e9ecef', 
+      alpha = 0.9) +
+    ggtitle('Distribution of Length of Stay') +
+    xlab('Length of Stay') +
+    ylab('Frequency') + 
+    scale_x_continuous(breaks = c(1, 10, 20, 30, 40), 
+      limits = c(0,40)) +
+    scale_y_continuous(labels = scales::comma))
 ```
 
 The greatest number of medicare patients were admitted due to Diseases and Disorders of the Circulatory System (MDC Code 5) then  Diseases and Disorders of the Respiratory System (MDC Code 4) and Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8).
 
-```{r, los-by-aprseverity-medicare, class.source = NULL, message = FALSE}
+```{r, mdccode-medicare, class.source = NULL, message = FALSE}
 report_plot(ggplot(dat, aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) + 
     geom_bar_interactive(
       fill = '#69b3a2', 
@@ -562,16 +542,18 @@ report_plot(ggplot(dat, aes(x = APR.MDC.Code, tooltip = APR.MDC.Description)) +
 
 As expected, the majority of patients with Medicare are 70 or older and also many in the 50 to 69 age group.
 
-```{r, los-by-age-medicare, class.source = NULL, message = FALSE}
-ggplot(dat, aes(x = Age.Group)) + 
-  geom_bar_interactive(
-    fill = '#69b3a2',
-    color = '#e9ecef', 
-    alpha = 0.9) +
-  ggtitle('Frequency of Individuals with Medicare by Age Group') +
-  xlab('Medicare') +
-  ylab('Frequency') +
-  scale_y_continuous(labels = scales::comma)
+```{r, age-medicare, class.source = NULL, message = FALSE}
+report_plot(
+  ggplot(dat, aes(x = Age.Group)) + 
+    geom_bar_interactive(
+      aes(tooltip = after_stat(count)),
+      fill = '#69b3a2',
+      color = '#e9ecef', 
+      alpha = 0.9) +
+    ggtitle('Frequency of Individuals with Medicare by Age Group') +
+    xlab('Medicare') +
+    ylab('Frequency') +
+    scale_y_continuous(labels = scales::comma))
 ```
 
 # Analysis 
@@ -589,7 +571,7 @@ test <- dat[-train_rows,]
 
 ## Evaluation Metrics
 
-We will be using the same evaluation metrics used in the literature for the assessment similar length of stay prediction models:
+We will be using the same evaluation metrics used in the literature for the assessment of similar length of stay prediction models:
 $R^2$ [@tierneyPredictingInpatientCosts1995], mean absolute error (MAE) [@tsaiLengthHospitalStay2016;@tierneyPredictingInpatientCosts1995], mean relative error (MRE) [@tsaiLengthHospitalStay2016], and root mean squared error (RMSE) [@tsaiLengthHospitalStay2016].
 
 $$ MAE = \frac {\sum_{i = 1}^{n} |\hat y_i - y_i|}{n} $$
@@ -656,7 +638,6 @@ Note that 7 coefficients are not defined due to singularities. The undefined fac
 The $R^2$ value for the simple linear regression on the training data is 0.2094. 
 
 ```{r, lin-reg-eval}
-
 # Evaluate linear regression model
 eval_LOS_linear <- evaluate_model(linearReg, test, 'Length.of.Stay')
 ```
@@ -687,7 +668,6 @@ summary(Poi)
 Note, the same hospital county coefficients were not estimated in using the Poisson model either. 
 
 ```{r, pois-reg-eval}
-
 # Evaluate Poisson model
 eval_LOS_Poi <- evaluate_model(Poi, test, 'Length.of.Stay')
 ```
@@ -720,7 +700,6 @@ summary(ZeroTruncated_Poi)
 # Evaluate Zero-Truncated Poisson model
 eval_LOS_ZeroTruncPoi <- evaluate_model(ZeroTruncated_Poi, test, 'Length.of.Stay')
 ```
-
 
 ### Hierarchical Zero-Truncated Poisson Model
 Lastly, we fit a hierarchical zero-truncted poisson model. If you look at the variables for Health Serivce Area and Hospital County, you can see that these are nested varaibles. For example, specific hospital counties will only occur in specific health areas. By modeling length of stay as a multi-level model, we can take into account the area-level and county-level effects on length of stay by accounting for unexplained variation in hospital service areas and hospital counties. 
@@ -817,6 +796,9 @@ eval_Cost_Hier <- evaluate_model(Hierarchical_cost, test, 'Cost.per.Day')
 compare <- data.frame(matrix(, nrow = 3, ncol = 3))
 colnames(compare) <- c('', 'Linear Regression', 'Hierarchical Linear Regression')
 
+compare = cbind('Linear Regression' = eval_Cost_linear, 
+  'Hierarchical Linear Regression' = eval_Cost_Hier)
+
 #Factor
 compare[1,1] <- 'Mean Absolute Error'
 compare[2,1] <- 'Mean Relative Error'
@@ -834,6 +816,14 @@ compare[3,3] <- eval_Cost_Hier[3]
 
 # Print table
 report_table(compare)
+
+
+
+LOS_compare <- cbind(
+'Linear Regression' = eval_LOS_linear,
+'Poisson Model' = eval_LOS_Poi,
+'ZTPoisson Model' = eval_LOS_ZeroTruncPoi,
+'Hierarchical ZTPoisson' = eval_LOS_Hier)
 ```
 
 The evaluation metrics between the two methods are very similar indicating that there wasn't much to gain in performance by using the more computationally intensive method. We believe this could perhaps be the case because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. However, the reward you do get for running the hierarchical model is that it better represents the structure of the data, and it knows how to treat the nested variables. Since linear regression does not have the knowledge of the correlation between the nested variables, it ends up not being able to estimate certain coefficients and you get the warning "prediction from a rank-deficient fit may be misleading" when trying to predict using the linear regression model. Thus, it is better to take into account the hierarchical structure of the results to be able to trust the results of your predictions.
