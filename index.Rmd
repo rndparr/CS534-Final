@@ -46,9 +46,9 @@ pre[class] {
 
 ```{r, setup, include = FALSE, echo = FALSE}
 knitr::opts_chunk$set(
-  # cache = TRUE, 
+  cache = TRUE, 
   # cache = FALSE, 
-  # cache.lazy = FALSE, 
+  cache.lazy = FALSE, 
   # cache.lazy = TRUE, 
   error = TRUE, 
   warning = FALSE,
@@ -906,9 +906,9 @@ report_table(CPD_compare, rownames = TRUE, scroll = FALSE)
 
 We did not see a large increase in predictive power as we expected by using the hierarchical linear model in either of the two predictions. The evaluation metrics between the two methods are very similar indicating that there wasn't much to gain in performance by using the more computationally intensive method.However, the reward you do get for running the hierarchical model is that it better represents the structure of the data, and it knows how to treat the nested variables. Since linear regression does not have the knowledge of the correlation between the nested variables, it ends up not being able to estimate certain coefficients and you get the warning "prediction from a rank-deficient fit may be misleading" when trying to predict using the linear regression model. Thus, it is better to take into account the hierarchical structure of the results to be able to trust the results of your predictions.
 
- If we wanted to use a model to predict length of stay, in practice we don’t want the model to predict -1.5 because that would not be a realistic prediction. At least, by using a zero-truncated poisson for predicting length of stay, we are taking into account that the predicted value should be at least 1. 
+If we wanted to use a model to predict length of stay, in practice we don’t want the model to predict -1.5 because that would not be a realistic prediction. At least, by using a zero-truncated poisson for predicting length of stay, we are taking into account that the predicted value should be at least 1. 
  
- For the cost per day analysis, we believe we may not have seen much of a difference between the two techniques because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. 
+For the cost per day analysis, we believe we may not have seen much of a difference between the two techniques because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. 
 
 One limitation of this analysis is that we only have inpatient discharge data, and thus we do not have information about patients who were admitted but later died. It would be interesting to consider these patients as well in our analysis as it would likely have an impact on the distribution of length of stay. It also would have been interesting to have more information about past medical history of the patients as that information would likely be correlated with length of stay. The lack of computing power available was also a limitation of the analysis. We did not incorporate Facility.ID as one of the nested variables because there were 211 distinct facilities to estimate. If we had more computing power, we could have included more variables and observations in our analysis.
 
