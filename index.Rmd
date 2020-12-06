@@ -22,7 +22,6 @@ output:
     code_folding: hide
     theme: lumen
     highlight: tango
-    # keep_md: true
 ---
 
 
@@ -55,7 +54,8 @@ knitr::opts_chunk$set(
   warning = FALSE,
   class.source = 'fold-show',
   tidy = TRUE,
-  fig.align = 'center')
+  fig.align = 'center',
+  message = FALSE)
 ```
 
 ## Libraries
@@ -72,22 +72,26 @@ spaMM.options('nb_cores' = future::availableCores() - 1)
 
 ## Miscellaneous Functions
 
-```{r, other-functions, message = FALSE}
-report_table <- function(x, w = NULL, h = '500px', ec = NULL, rownames = FALSE){
-  scroll_box(
-    kable_paper(
-      kable_styling(
-        kbl(x, 
-          row.names = rownames), 
-        full_width = T, 
-        position = 'center',
-        bootstrap_options = c('striped', 'hover'),
-        fixed_thead = T), 
-      full_width = T), 
-    fixed_thead = T, 
-    height = h,
-    width = w,
-    extra_css = ec)
+```{r, other-functions, message = FALSE, class.source = NULL}
+report_table <- function(x, w = NULL, h = '500px', ec = NULL, rownames = FALSE, scroll = TRUE){
+  y  <-   kable_paper(
+  kable_styling(
+    kbl(x, 
+      row.names = rownames), 
+    full_width = T, 
+    position = 'center',
+    bootstrap_options = c('striped', 'hover'),
+    fixed_thead = T), 
+  full_width = T)
+
+  if (scroll) {
+    y <- scroll_box(y, 
+      fixed_thead = T, 
+      height = h,
+      width = w,
+      extra_css = ec)
+  }
+  y
 }
 
 report_plot <- function(x){
@@ -158,16 +162,15 @@ dat$APR.Severity.of.Illness.Description <- factor(
   levels = c('Minor', 'Moderate', 'Major', 'Extreme'),
   exclude = NULL)
 
-# If Facility.Type and Ownership.Type are NA, then make it it's own category of Missing
-# dat$Facility.Type = factor(dat$Facility.Type, levels=c(levels(dat$Facility.Type), 'Missing'))
-# dat[which(is.na(dat$Facility.Type)), 'Facility.Type'] <- 'Missing'
-dat$Facility.Type = factor(dat$Facility.Type, exclude = NULL)
+# code NA Facility.Type as Missing
+dat$Facility.Type <- as.character(dat$Facility.Type)
 dat[which(is.na(dat$Facility.Type)), 'Facility.Type'] <- 'Missing'
+dat$Facility.Type <- factor(dat$Facility.Type)
 
-# dat$Ownership.Type = factor(dat$Ownership.Type, levels=c(levels(dat$Ownership.Type), 'Missing'))
-# dat[which(is.na(dat$Ownership.Type)), 'Ownership.Type'] <- 'Missing'
-dat$Ownership.Type = factor(dat$Ownership.Type, exclude = NULL)
+# code NA Ownership.Type as Missing
+dat$Ownership.Type <- as.character(dat$Ownership.Type)
 dat[which(is.na(dat$Ownership.Type)), 'Ownership.Type'] <- 'Missing'
+dat$Ownership.Type <- factor(dat$Ownership.Type)
 
 # Remove columns:
 ## discharge year is 2015 for all rows
@@ -257,7 +260,7 @@ ggplot(dat,
 
 The longest average length of stay among MDC groups was the 0 MDC group which corresponds to Pre-MDC or Ungroupable. As discussed earlier, the Pre-MDC group is primarily composed of transplant patients which explains the longer average time spent as an inpatient.
 
-```{r, los-avg, class.source = NULL, class.source = NULL, message = FALSE}
+```{r, los-avg, class.source = NULL, message = FALSE}
 report_plot(
   ggplot(dat, 
     aes(x = APR.MDC.Code, 
@@ -332,7 +335,7 @@ ggplot(dat,
 
 The average length of stay is greater in hospitals than in Critical Access Hospitals. Critical Access Hospitals are rural hospitals overseen by the Centers for Medicare and Medicaid Services (CMS) that meet the following criteria: 25 or fewer acute care inpatient beds, at least 35 miles from the nearest hospital, keep the average length of stay for the year at 96 hours or less for acute care patients, and have emergency care services available 24/7. By keeping their status as a Critical Access Hospital, they receive certain benefits from CMS which would Critical Access Hopsitals to keep the length of stay lower in order to keep their status. [@ruralhealthinformationhubCriticalAccessHospitals2019].
 
-```{r, los-facility-type, class.source = NULL, class.source = NULL, message = FALSE}
+```{r, los-facility-type, class.source = NULL, message = FALSE}
 ggplot(dat, 
   aes(x = Facility.Type, 
     y = Length.of.Stay, 
@@ -353,7 +356,7 @@ ggplot(dat,
 
 Cost per day is highest in patients with elective procedures and cases of trauma.
 
-```{r, cpd-by-typeadmit, class.source = NULL, class.source = NULL, message = FALSE}
+```{r, cpd-by-typeadmit, class.source = NULL, message = FALSE}
 ggplot(dat, 
     aes(x = Type.of.Admission, 
       y = Cost.per.Day, 
@@ -372,7 +375,7 @@ ggplot(dat,
 
 Average cost per day increased as age group increased with the highest average cost in the age group from 50 to 69. Surprisingly, average cost for those 70 or older was less than both age groups of 30 to 49 and 50 to 69.
 
-```{r, cpd-by-age, class.source = NULL, class.source = NULL, message = FALSE}
+```{r, cpd-by-age, class.source = NULL, message = FALSE}
 ggplot(dat, 
     aes(x = Age.Group, 
       y = Cost.per.Day, 
@@ -391,7 +394,7 @@ ggplot(dat,
 
 Diseases and Disorders of the Male Reproductive System (MDC Code 12), Diseases and Disorders of the Musculoskeletal System and Connective Tissue (MDC Code 8), Diseases and Disorders of the Female Reproductive System (MDC Code 13) had the highest average costs per day. 
 
-```{r, cpd-avg, class.source = NULL, class.source = NULL, message = FALSE}
+```{r, cpd-avg, class.source = NULL, message = FALSE}
 report_plot(
   ggplot(dat, aes(x = APR.MDC.Code, y = Cost.per.Day, tooltip = APR.MDC.Description)) + 
     geom_bar_interactive(stat = "summary", fun = "mean", fill = "#69b3a2") + 
@@ -406,7 +409,7 @@ report_plot(
 
 Municipality owned hospitals' cost per patient per day is at least $1000 more on average than the other four ownership types. 
 
-```{r, cpd-owner-type, class.source = NULL, class.source = NULL, message = FALSE}
+```{r, cpd-owner-type, class.source = NULL, message = FALSE}
   ggplot(dat, 
     aes(x = Ownership.Type, 
       y = Cost.per.Day, 
@@ -455,7 +458,6 @@ report_plot(
 Due to confidentiality concerns, some columns were censored if the discharge record for that observation contained any potential indication of abortion, including but not limited to: elective abortion procedures, miscarriages, ectopic pregnancies, etc.
 
 All observations with missing data for Facility.Id, Health Service Area, and Hospital County also had `Abortion.Edit.Indicator` = 'Y'. 
-<!-- We found that 100% of missing data for Facility.Id, Health Service Area, and Hospital County also had Abortion.Edit.Indicator = 'Y', meaning the discharge record had some mention of abortion.  -->
 The plot below shows the MDC codes that had observations where `Abortion.Edit.Indicator` was equal to 'Y'. The majority of these observations were when `APR.MDC.Code` was equal to 14 which corresponds to the MDC 'Pregnancy, Childbirth And Puerperium'. 
 
 ```{r, abortion, class.source = NULL, message = FALSE}
@@ -550,10 +552,6 @@ dat <- dat[medicare_rows, ]
 # drop unused levels
 dat <- droplevels(dat)
 ```
-<!-- 
-# just type1 medicare is  874388 rows
-# any is medicare is 929721
- -->
 
 ## LOS Figures {.tabset}
  <!-- using subset of data (Only Medicare) -->
@@ -676,39 +674,6 @@ evaluate_model <- function(model, test, response){
 
 In the following models, we consider the following variables [@newyorkstatedepartmentofhealthStatewidePlanningResearch2017] to predict length of stay.
 
-<!-- - Age.Group: Age in years at time of discharge grouped into 0 to 17, 18 - 29, 30 - 49, 50 - 69, 70+
-- Gender: Male, Female, Unknown
-- Race: Black/African American, Multi, Other Race, Unknown, White. 
-- Ethnicity: Spanish/Hispanic Origin, Not of Spanish/Hispanic Origin, Multi, Unknown.
-- Type.of.Admission: Elective, Emergency, Newborn, Not Available, Trauma, Urgent.
-- APR.MDC.Code: 0-25
-- APR.Severity.of.Illness.Code: Minor (1), Moderate (2), Major (3) , Extreme (4). 
-- APR.Risk.of.Mortality: Minor (1), Moderate (2), Major (3) , Extreme (4).
-- Ownership.Type: County, Municipality, Not for Profit Corporation, Public Benefit Corporation, State
-- Facility.Type: Hospital, Primary Care Hospital - Critical Access Hospital
-- Emergency.Department.Indicator: If the record contained an Emergency Department revenue code of 045X, the indicator is set to "Y", otherwise it will be “N”.
-- Health.Service.Area: 8 service areas represented
-- Hospital.County : 57 Hospital counties represented
-
- -->
-
-<!-- ***
-| Column                          | Description                                                                                                                   |
-|---------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
-| Age.Group                       | Age in years at time of discharge grouped into 0 to 17, 18 to 29, 30 to 49, 50 to 69, 70+                                    |
-| Gender                          | Male, Female, Unknown                                                                                                        |
-| Race                            | Black/African American, Multi, Other Race, Unknown, White.                                                                   |
-| Ethnicity                       | Spanish/Hispanic Origin, Not of Spanish/Hispanic Origin, Multi, Unknown.                                                     |
-| Type.of.Admission               | Elective, Emergency, Newborn, Not Available, Trauma, Urgent.                                                                 |
-| APR.MDC.Code                    | 0-25                                                                                                                         |
-| APR.Severity.of.Illness.Code    | Minor (1), Moderate (2), Major (3) , Extreme (4).                                                                            |
-| APR.Risk.of.Mortality           | Minor (1), Moderate (2), Major (3) , Extreme (4).                                                                            |
-| Ownership.Type                  | County, Municipality, Not for Profit Corporation, Public Benefit Corporation, State                                          |
-| Facility.Type                   | Hospital, Primary Care Hospital - Critical Access Hospital                                                                   |
-| Emergency.Department.Indicator  | If the record contained an Emergency Department revenue code of 045X, the indicator is set to "Y", otherwise it will be “N”. |
-| Health.Service.Area             | 8 service areas represented                                                                                                  |
-| Hospital.County                 | 57 Hospital counties represented     
-*** -->
 ```{r, lin-reg-vars, class.source = NULL}
 report_table(
   data.frame(matrix(
@@ -857,45 +822,15 @@ summary(Hierarchical_LOS, details=TRUE, max.print=99999999)
 
 
 ### Model Comparison
-```{r, los-model-comp, eval = TRUE}
-# compare <- data.frame(matrix(, nrow = 3, ncol = 5))
-# colnames(compare) <- c('', 'Linear Regression', 'Poisson', 'Zero-Truncated Poisson','Hierarchical Zero-Truncated Poisson')
-
-# #Factor
-# compare[1,1] <- 'Mean Absolute Error'
-# compare[2,1] <- 'Mean Relative Error'
-# compare[3,1] <- 'Root Mean Squared Error'
-
-
+```{r, los-model-comp, eval = TRUE, class.source = NULL}
 LOS_compare <- cbind(
 'Linear Regression' = eval_LOS_linear,
 'Poisson Model' = eval_LOS_Poi,
 'ZTPoisson Model' = eval_LOS_ZeroTruncPoi,
 'Hierarchical ZTPoisson' = eval_LOS_Hier)
 
-# #Linear Regression
-# compare[1,2] <- eval_LOS_linear[1]
-# compare[2,2] <- eval_LOS_linear[2]
-# compare[3,2] <- eval_LOS_linear[3]
-  
-# # Poisson
-# compare[1,3] <- eval_LOS_Poi[1]
-# compare[2,3] <- eval_LOS_Poi[2]
-# compare[3,3] <- eval_LOS_Poi[3]
-
-# # Zero-Truncated Poisson
-# compare[1,4] <- eval_LOS_ZeroTruncPoi[1]
-# compare[2,4] <- eval_LOS_ZeroTruncPoi[2]
-# compare[3,4] <- eval_LOS_ZeroTruncPoi[3]
-
-# # Hierarchical Zero Truncated Poisson
-# compare[1,5] <- eval_LOS_Hier[1]
-# compare[2,5] <- eval_LOS_Hier[2]
-# compare[3,5] <- eval_LOS_Hier[3]
-
-
 # Print table
-report_table(LOS_compare, rownames = TRUE)
+report_table(LOS_compare, rownames = TRUE, scroll = FALSE)
 ```
 
 
@@ -962,31 +897,12 @@ summary(Hierarchical_cost)
 ```
 
 ### Model Comparison
-```{r, cpd-model-comp, eval = TRUE}
-# compare2 <- data.frame(matrix(, nrow = 3, ncol = 3))
-# colnames(compare2) <- c('', 'Linear Regression', 'Hierarchical Linear Regression')
-
-
-# #Factor
-# compare2[1,1] <- 'Mean Absolute Error'
-# compare2[2,1] <- 'Mean Relative Error'
-# compare2[3,1] <- 'Root Mean Squared Error'
-
-# #Linear Regression
-# compare2[1,2] <- eval_Cost_linear[1]
-# compare2[2,2] <- eval_Cost_linear[2]
-# compare2[3,2] <- eval_Cost_linear[3]
-  
-# # Hierarchical Linear Regression
-# compare2[1,3] <- eval_Cost_Hier[1]
-# compare2[2,3] <- eval_Cost_Hier[2]
-# compare2[3,3] <- eval_Cost_Hier[3]
-
+```{r, cpd-model-comp, eval = TRUE, class.source = NULL}
 CPD_compare = cbind('Linear Regression' = eval_Cost_linear, 
   'Hierarchical Linear Regression' = eval_Cost_Hier)
 
 # Print table
-report_table(CPD_compare, rownames = TRUE)
+report_table(CPD_compare, rownames = TRUE, scroll = FALSE)
 ```
 
 # Discussion
@@ -996,6 +912,9 @@ We did not see a large increase in predictive power as we expected by using the 
  If we wanted to use a model to predict length of stay, in practice we don’t want the model to predict -1.5 because that would not be a realistic prediction. At least, by using a zero-truncated poisson for predicting length of stay, we are taking into account that the predicted value should be at least 1. 
  
  For the cost per day analysis, we believe we may not have seen much of a difference between the two techniques because there is likely not much difference in cost between hospitals, especially between hospitals in the same general area. 
+
+One limitation of this analysis is that we only have inpatient discharge data, and thus we do not have information about patients who were admitted but later died. It would be interesting to consider these patients as well in our analysis as it would likely have an impact on the distribution of length of stay. It also would have been interesting to have more information about past medical history of the patients as that information would likely be correlated with length of stay. The lack of computing power available was also a limitation of the analysis. We did not incorporate Facility.ID as one of the nested variables because there were 211 distinct facilities to estimate. If we had more computing power, we could have included more variables and observations in our analysis.
+
 
 # Bibliography
 
